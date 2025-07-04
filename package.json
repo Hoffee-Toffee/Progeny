@@ -1,0 +1,24 @@
+{
+  "name": "progeny",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Combining Genetic Algorithms with Block-Based Programming to Evolve Human-Readable (and Optimisable) Algorithms.",
+  "main": "genetic-algorithm.js",
+  "scripts": {
+    "start": "node genetic-algorithm.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hoffee-Toffee/Progeny.git"
+  },
+  "author": "Hoffee-Toffee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Hoffee-Toffee/Progeny/issues"
+  },
+  "homepage": "https://github.com/Hoffee-Toffee/Progeny#readme",
+  "dependencies": {
+    "chalk": "^5.4.1"
+  }
+}
