@@ -49,9 +49,26 @@ const commands = {
       }
     },
   },
+  'clear-bestslog': {
+    aliases: ['cbl'],
+    description: 'Clear (delete) the best_programs.log file.',
+    action: async () => {
+      const bestLogFile = path.join(__dirname, 'best_programs.log');
+      try {
+        await fs.unlink(bestLogFile);
+        console.log(chalk.green(`Successfully cleared ${bestLogFile}`));
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          console.log(chalk.yellow(`${bestLogFile} not found. Nothing to clear.`));
+        } else {
+          console.error(chalk.red(`Error clearing ${bestLogFile}: ${error.message}`));
+        }
+      }
+    },
+  },
   run: {
     aliases: ['r'],
-    flags: [['--fresh', '-f'], ['--console', '-c'], ['--trials', '-t']],
+    flags: [['--fresh', '-f'], ['--console', '-c'], ['--trials', '-t'], ['--eval-cases', '-ec']],
     description: 'Run genetic algorithm for a test case (e.g., sumThreeNumbers)',
     action: async (args) => {
       const fresh = args.includes('--fresh') || args.includes('-f');
@@ -71,9 +88,23 @@ const commands = {
 
       // Test case name processing
       // Argument for testCaseName is one that is not a flag and not the value for --trials/-t
+      // Also ensure it's not the value for --eval-cases/-ec
+      const evalCasesIndex = args.findIndex(a => a === '--eval-cases' || a === '-ec');
+      let evaluationCasesCountForProgeny = undefined; // Let Progeny constructor use its default
+
+      if (evalCasesIndex >= 0 && args[evalCasesIndex + 1]) {
+        const parsedEvalCases = parseInt(args[evalCasesIndex + 1], 10);
+        if (!isNaN(parsedEvalCases) && parsedEvalCases > 0) {
+          evaluationCasesCountForProgeny = parsedEvalCases;
+        } else {
+          console.log(chalk.yellow(`Invalid value for --eval-cases. Using Progeny default.`));
+        }
+      }
+      
       const testCaseNameInput = args.find(a => 
         !a.startsWith('-') && 
-        !(trialsIndex >= 0 && a === args[trialsIndex + 1]) 
+        !(trialsIndex >= 0 && a === args[trialsIndex + 1]) &&
+        !(evalCasesIndex >= 0 && a === args[evalCasesIndex + 1])
       );
 
       let testCaseName;
@@ -99,7 +130,8 @@ const commands = {
       }
 
       try {
-        const progeny = new Progeny(100, 50, consoleLog);
+        // Pass population size, max generations, consoleLog, and evaluationCasesCount
+        const progeny = new Progeny(100, 50, consoleLog, evaluationCasesCountForProgeny);
         await progeny.run(testCase, trials);
         console.log(chalk.green('\nGenetic algorithm completed successfully.\n'));
       } catch (error) {
@@ -170,6 +202,38 @@ const commands = {
     description: 'Exit the Progeny CLI',
     action: () => {
       rl.close();
+    },
+  },
+  'clear-mainlog': {
+    aliases: ['cml'],
+    description: 'Clear (delete) the main progeny.log file.',
+    action: async () => {
+      const logFile = path.join(__dirname, 'progeny.log');
+      try {
+        await fs.unlink(logFile);
+        console.log(chalk.green(`Successfully cleared ${logFile}`));
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          console.log(chalk.yellow(`${logFile} not found. Nothing to clear.`));
+        } else {
+          console.error(chalk.red(`Error clearing ${logFile}: ${error.message}`));
+        }
+      }
+    },
+  },
+  'clear-alllogs': {
+    aliases: ['cal'],
+    description: 'Clear (delete) all log files (progeny.log and best_programs.log).',
+    action: async () => {
+      console.log(chalk.blue('Attempting to clear all log files...'));
+      // Directly call the actions of the individual clear commands
+      if (commands['clear-mainlog'] && typeof commands['clear-mainlog'].action === 'function') {
+        await commands['clear-mainlog'].action();
+      }
+      if (commands['clear-bestslog'] && typeof commands['clear-bestslog'].action === 'function') {
+        await commands['clear-bestslog'].action();
+      }
+      console.log(chalk.blue('Finished clearing all log files attempt. Check messages above.'));
     },
   },
 };

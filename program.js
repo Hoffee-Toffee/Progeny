@@ -7,6 +7,17 @@ const constants = [-10, -5, -1, 0, 1, 2, 5, 10, 0.1, 0.5, 1.0, 2.0];
 const booleanConstants = [true, false];
 const operators = ['==', '!=', '>', '>=', '<', '<='];
 
+// Helper function for validating variable names
+function isValidProgramVariableName(varName, localInputVariables) {
+  if (typeof varName !== 'string' || varName.trim() === '') return false; // Must be non-empty string
+  if (variables.includes(varName) || localInputVariables.includes(varName)) {
+    return true;
+  }
+  // Allow 'out', 'v' followed by numbers, or 'b' followed by numbers
+  const dynamicVarPattern = /^(out|v[0-9]+|b[0-9]+)$/;
+  return dynamicVarPattern.test(varName);
+}
+
 function isValidValue(value, expectedType, inputVariables = [], consoleLog = false) {
   if (value === null || value === undefined) return false;
   if (expectedType === 'number') {
@@ -14,28 +25,28 @@ function isValidValue(value, expectedType, inputVariables = [], consoleLog = fal
     if (typeof value === 'string' && (variables.includes(value) || inputVariables.includes(value))) return true;
     if (typeof value === 'object' && value.blockName && isValidBlock(value, inputVariables, consoleLog)) { // Ensure blockName exists and pass context
       if (blocksModule[value.blockName]?.output === 'number') return true;
-      // Special handling for 'get' block when a number is expected
       if (value.blockName === 'get') {
         const varName = value.inputs && value.inputs[0];
-        // Variable is considered numeric if it's in 'variables' (e.g. v0, out) or inputVariables, AND doesn't start with 'b'
-        if (varName && typeof varName === 'string' && (variables.includes(varName) || inputVariables.includes(varName)) && !varName.startsWith('b')) return true;
+        if (isValidProgramVariableName(varName, inputVariables) && !varName.startsWith('b')) return true;
       }
     }
   }
   if (expectedType === 'boolean') {
     if (typeof value === 'boolean') return true;
-    if (typeof value === 'string' && (variables.includes(value) || inputVariables.includes(value))) return true;
+    // For string variable names, check if they are valid program variable names.
+    // The type (boolean) will be enforced by how it's set or its naming convention (e.g. varName.startsWith('b')).
+    if (typeof value === 'string' && isValidProgramVariableName(value, inputVariables)) return true;
     if (typeof value === 'object' && value.blockName && isValidBlock(value, inputVariables, consoleLog)) { // Ensure blockName exists and pass context
       if (blocksModule[value.blockName]?.output === 'boolean') return true;
-      // Special handling for 'get' block when a boolean is expected
       if (value.blockName === 'get') {
         const varName = value.inputs && value.inputs[0];
-        // Variable is considered boolean if it's in 'variables' or inputVariables, AND starts with 'b'
-        if (varName && typeof varName === 'string' && (variables.includes(varName) || inputVariables.includes(varName)) && varName.startsWith('b')) return true;
+        if (isValidProgramVariableName(varName, inputVariables) && varName.startsWith('b')) return true;
       }
     }
   }
-  if (expectedType === 'variable' && typeof value === 'string' && (variables.includes(value) || inputVariables.includes(value))) return true;
+  if (expectedType === 'variable') { // This is for validating inputs to 'get' or 'set's var field
+    return isValidProgramVariableName(value, inputVariables);
+  }
   if (expectedType === "'=='|'!='|'>'|'>='|'<'|'<='" && operators.includes(value)) return true;
   return false;
 }
@@ -48,13 +59,14 @@ function isValidBlock(block, inputVariables = [], consoleLog = false) {
 
   // Handle special blocks first based on their unique structure
   if (block.blockName === 'set') {
-    // 'set' uses 'var' and 'value' properties, not 'inputs' array
-    if (!block.var || !variables.includes(block.var)) {
-      warn(`Invalid block: set block has invalid or missing 'var': ${JSON.stringify(block)}`, consoleLog);
+    const varName = block.var;
+    if (!isValidProgramVariableName(varName, inputVariables)) {
+      warn(`Invalid block: set block has invalid or missing 'var' property: '${varName}'. Must be a known variable or match pattern 'out'/'v<num>'/'b<num>'. Block: ${JSON.stringify(block)}`, consoleLog);
       return false;
     }
-    if (!isValidValue(block.value, block.var.startsWith('b') ? 'boolean' : 'number', inputVariables, consoleLog)) {
-      warn(`Invalid block: set block has invalid 'value': ${JSON.stringify(block)}`, consoleLog);
+
+    if (!isValidValue(block.value, varName.startsWith('b') ? 'boolean' : 'number', inputVariables, consoleLog)) {
+      warn(`Invalid block: set block has invalid 'value' for var '${varName}': ${JSON.stringify(block)}`, consoleLog);
       return false;
     }
     return true; // Valid 'set' block
@@ -410,29 +422,50 @@ export class ProgenyProgram {
     const blockDef = blocksModule[blockName];
 
     if (!blockDef.output) {
+      // Handles stack commands from blocksModule that are not 'set'/'if'/'return'
       await error(`Block '${blockName}' from blocksModule has no 'output' and is not a handled special block. Executing its action if available.`, this.consoleLog);
-      // If it has an action, it might modify state. If not, it does nothing.
-      // This path implies a non-reporter block from blocksModule that isn't one of the special cases.
-      // For safety, we could try to execute its action if it exists, assuming it's a state-modifying action.
       if (blockDef.action && typeof blockDef.action === 'function') {
-         const resolvedInputsForAction = block.inputs
+         const resolvedInputsForStackAction = block.inputs 
             ? await Promise.all(block.inputs.map((input, i) => this.resolveInput(input, runTimeInputs, state, blockDef.inputs[i])))
             : [];
-         blockDef.action(...resolvedInputsForAction, state); // Execute, ignore return value
+         blockDef.action(...resolvedInputsForStackAction, state); 
       }
-      return; // No value to return from executeBlock itself
+      return; 
     }
     
-    const resolvedInputs = block.inputs 
-      ? await Promise.all(block.inputs.map((input, i) => this.resolveInput(input, runTimeInputs, state, blockDef.inputs[i]))) 
-      : [];
+    // If we reach here, blockDef.output IS defined (it's a reporter).
+    let resolvedInputs = [];
+    if (blockDef.inputs) { // Only try to resolve inputs if blockDef defines them
+        if (Array.isArray(block.inputs)) { // And if the block instance has an inputs array
+            resolvedInputs = await Promise.all(
+                block.inputs.map((input, i) => this.resolveInput(input, runTimeInputs, state, blockDef.inputs[i]))
+            );
+        } else if (block.inputs && block.inputs.length > 0) { 
+            // Instance has inputs but it's not an array, or def has inputs but instance doesn't and def expects them
+            // This case should ideally be caught by isValidBlock, but as a safeguard:
+            await error(`Block '${blockName}' input structure mismatch. Def inputs: ${JSON.stringify(blockDef.inputs)}, Instance inputs: ${JSON.stringify(block.inputs)}. Block: ${JSON.stringify(block)}`, this.consoleLog);
+            return blockDef.output === 'boolean' ? false : 0; // Default based on output type
+        }
+        // If blockDef.inputs is defined but block.inputs is not (or empty), and blockDef.inputs is not empty,
+        // it implies missing inputs, which should also be caught by isValidBlock.
+        // For simplicity here, assume if blockDef.inputs exists, resolvedInputs will be populated or remain [] if block.inputs is missing/empty.
+    } else if (block.inputs && block.inputs.length > 0) {
+        // Block definition has no inputs (e.g., 'pi'), but the instance has them.
+        await error(`Block '${blockName}' instance has inputs, but definition does not. Inputs ignored. Block: ${JSON.stringify(block)}`, this.consoleLog);
+        // resolvedInputs remains [].
+    }
 
-    if (typeof blockDef.action !== 'function') {
-       await error(`Invalid action for ${blockName}: not a function`, this.consoleLog);
-       return blockDef.output === 'boolean' ? false : 0; 
+    if (typeof blockDef.action === 'function') { 
+      return blockDef.action(...resolvedInputs, state); 
+    } else {
+      // Not a function, so blockDef.action is the constant value itself.
+      if (resolvedInputs.length > 0 && blockDef.inputs && blockDef.inputs.length > 0) {
+        // This means blockDef specified inputs, they were resolved, but action is not a function.
+        // This would be a contradictory block definition (e.g. 'pi' defined with inputs).
+        await warn(`Constant block '${blockName}' (action is not a function) had inputs defined and resolved. This is unusual. Inputs ignored.`, this.consoleLog);
+      }
+      return blockDef.action; // Return the constant value (e.g., Math.PI)
     }
-    
-    return blockDef.action(...resolvedInputs, state); 
   }
 
   async run(runTimeInputs) {
@@ -470,25 +503,10 @@ export class ProgenyProgram {
     const blockTypes = isAction
       ? Object.keys(blocksModule).filter(t => !blocksModule[t].output && t !== 'return' && t !== 'set')
       : Object.keys(blocksModule).filter(t => blocksModule[t].output === 'number' && t !== 'get' && t !== 'return');
-    // Fix typo: ‘number’ to 'number' (string) for a simple check, or check length > 0 for actual intent.
-    // Original intent was likely to ensure blockTypes is not empty and includes 'add'.
-    // For now, correcting the literal string. A more robust check like `blockTypes.length > 0` might be better.
-    if (blockTypes.length > 0 && typeof blockTypes[0] === 'string' && Math.random() < 0.7 && blockTypes.includes('add')) {
-      // Strong bias toward add for sumThreeNumbers
-      // This condition is a bit arbitrary now, just ensuring blockTypes is not empty before specific checks.
-      const block = {
-        blockName: 'add',
-        inputs: await Promise.all([
-          generateInput('number', depth + 1, maxDepth, inputVariables, consoleLog),
-          generateInput('number', depth + 1, maxDepth, inputVariables, consoleLog)
-        ])
-      };
-      if (isValidBlock(block, inputVariables, consoleLog)) {
-        await log(`Depth ${depth}: Generated block add with inputs ${JSON.stringify(block.inputs)}`, consoleLog);
-        return block;
-      }
-      await warn(`Invalid add block generated: ${JSON.stringify(block)}`, consoleLog);
-    }
+    
+    // Removed the strong bias towards 'add' block generation.
+    // Block selection is now uniformly random from the available blockTypes.
+
     const blockName = blockTypes[Math.floor(Math.random() * blockTypes.length)];
     const blockDef = blocksModule[blockName];
     const block = { blockName };

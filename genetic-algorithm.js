@@ -1,15 +1,17 @@
 import { ProgenyProgram } from './program.js';
 import { tests } from './tests.js';
-import { log, close } from './logger.js';
+import { log, close, logBestProgram } from './logger.js'; // Import logBestProgram
 import blocks from './blocks.js'; // Import blocks definition
 
 const defaultNumericValue = 0; // Default numeric value for fallback in crossover
+const DEFAULT_EVALUATION_CASES = 20; // Default number of cases for fitness evaluation
 
 export class Progeny {
-  constructor(populationSize = 100, maxGenerations = 50, consoleLog = false) {
+  constructor(populationSize = 100, maxGenerations = 50, consoleLog = false, evaluationCasesCount = DEFAULT_EVALUATION_CASES) {
     this.populationSize = populationSize;
     this.maxGenerations = maxGenerations;
     this.consoleLog = consoleLog;
+    this.evaluationCasesCount = evaluationCasesCount;
     this.population = [];
   }
 
@@ -26,7 +28,7 @@ export class Progeny {
   // Evaluate fitness
   async evaluate(program, testCase) {
     let error = 0;
-    const cases = testCase.generateCases();
+    const cases = testCase.generateCases(this.evaluationCasesCount); // Pass the configured count
     for (const { inputs, expected } of cases) {
       const result = await program.run(inputs);
       if (typeof result !== 'number') {
@@ -41,76 +43,98 @@ export class Progeny {
 
   // Select top programs
   async select(testCase) {
-    this.population.sort(async (a, b) => (await this.evaluate(b, testCase)) - (await this.evaluate(a, testCase)));
-    this.population = this.population.slice(0, Math.floor(this.populationSize / 2));
-    const validPrograms = this.population.filter(p => p.blocks.some(b => b.blockName !== 'return'));
-    if (validPrograms.length > 0) {
-      this.population = validPrograms.slice(0, Math.floor(this.populationSize / 2));
+    if (this.population.length === 0) {
+      await log('Select: Population is empty, cannot select.', this.consoleLog);
+      return; 
     }
-    const bestFitness = this.population.length > 0 ? await this.evaluate(this.population[0], testCase) : 0;
-    const worstFitness = this.population.length > 0 ? await this.evaluate(this.population[this.population.length - 1], testCase) : 0;
-    const avgLength = this.population.length > 0 ? this.population.reduce((sum, p) => sum + p.blocks.length, 0) / this.population.length : 0;
-    await log(`Selected ${this.population.length} programs, best fitness: ${bestFitness.toFixed(4)}, worst: ${worstFitness.toFixed(4)}, avg length: ${avgLength.toFixed(2)}`, this.consoleLog);
+
+    // 1. Evaluate all programs and store fitness
+    const evaluatedPopulation = await Promise.all(
+      this.population.map(async (program) => {
+        const fitness = await this.evaluate(program, testCase);
+        return { program, fitness };
+      })
+    );
+
+    // 2. Sort based on stored fitness (descending)
+    evaluatedPopulation.sort((a, b) => b.fitness - a.fitness);
+
+    // 3. Log the best program of this entire generation (before truncation)
+    if (evaluatedPopulation.length > 0) {
+      const bestProgramOfGeneration = evaluatedPopulation[0].program;
+      const bestFitnessOfGeneration = evaluatedPopulation[0].fitness;
+      const programJson = JSON.stringify(bestProgramOfGeneration.blocks);
+      await logBestProgram(programJson, this.consoleLog); 
+
+      await log(`Gen Best Fitness: ${bestFitnessOfGeneration.toFixed(4)} (program logged to best_programs.log)`, this.consoleLog);
+    }
+
+    // 4. Truncate to form the new parent pool for this.population
+    const selectionSize = Math.floor(this.populationSize / 2); 
+    const selectedSurvivors = evaluatedPopulation.slice(0, selectionSize);
+    
+    this.population = selectedSurvivors.map(item => item.program);
+
+    // Removed problematic validPrograms filter for simplification.
+    // Fitness should naturally select against overly trivial programs like just [{return out}].
+
+    if (this.population.length > 0) {
+        // Re-evaluate the best of the survivors for logging consistency if needed, though not strictly necessary
+        // as evaluatedPopulation[0].fitness is the true best of generation.
+        // For this log message, using the fitness of the actual top survivor.
+        const bestSurvivorFitness = await this.evaluate(this.population[0], testCase); 
+        await log(`Select: Kept ${this.population.length} survivors. Best survivor fitness: ${bestSurvivorFitness.toFixed(4)}`, this.consoleLog);
+    } else {
+        await log('Select: No survivors after selection.', this.consoleLog);
+    }
   }
 
-  // Crossover two programs
+  // Crossover two programs - One-point crossover for block lists
   async crossover(program1, program2) {
-    const inputVariables = program1.inputVariables; // Assuming both parents have same input vars context
+    const p1_blocks = program1.blocks;
+    const p2_blocks = program2.blocks;
+    const inputVariables = program1.inputVariables; // Assume common input context
 
-    let p1Value = program1.blocks[0]?.value;
-    let p2Value = program2.blocks[0]?.value;
+    // Handle cases with empty parents
+    if (p1_blocks.length === 0 && p2_blocks.length === 0) {
+      await log('Crossover: Both parents empty, creating default program for child.', this.consoleLog);
+      // ProgenyProgram.create handles async default generation
+      return ProgenyProgram.create([], inputVariables, this.consoleLog); 
+    }
+    if (p1_blocks.length === 0) {
+      await log('Crossover: Parent 1 empty, cloning Parent 2 for child.', this.consoleLog);
+      // Deep copy blocks and create new program
+      return new ProgenyProgram(JSON.parse(JSON.stringify(p2_blocks)), inputVariables, this.consoleLog);
+    }
+    if (p2_blocks.length === 0) {
+      await log('Crossover: Parent 2 empty, cloning Parent 1 for child.', this.consoleLog);
+      return new ProgenyProgram(JSON.parse(JSON.stringify(p1_blocks)), inputVariables, this.consoleLog);
+    }
 
-    let valueForChild;
+    // Select crossover points (index for slice indicates point *before* element at that index)
+    // cp can range from 0 (take nothing from start) to length (take all from start)
+    const cp1 = Math.floor(Math.random() * (p1_blocks.length + 1));
+    const cp2 = Math.floor(Math.random() * (p2_blocks.length + 1));
 
-    const isValueSuitableForNumeric = (val) => {
-      if (val === undefined || val === null) return false; // Not suitable if undefined/null
-      if (typeof val === 'boolean') return false; // Boolean constants are not numeric
-      if (typeof val === 'object' && val.blockName && blocks[val.blockName]) {
-        if (blocks[val.blockName].output === 'boolean') return false; // Boolean-outputting blocks not numeric
-      }
-      return true; // Otherwise, assume it might be numeric or let ProgenyProgram constructor validate.
-    };
+    // Create child segments with deep copy to prevent modifying parent blocks
+    const segment1 = JSON.parse(JSON.stringify(p1_blocks.slice(0, cp1)));
+    const segment2 = JSON.parse(JSON.stringify(p2_blocks.slice(cp2)));
 
-    const val1Suitable = isValueSuitableForNumeric(p1Value);
-    const val2Suitable = isValueSuitableForNumeric(p2Value);
+    let raw_child_blocks = segment1.concat(segment2);
 
-    // Prefer suitable values
-    if (Math.random() < 0.5) { // Try program1's value first
-      if (val1Suitable) {
-        valueForChild = p1Value;
-      } else if (val2Suitable) {
-        valueForChild = p2Value;
-      } else {
-        valueForChild = defaultNumericValue; // Fallback if neither is suitable
-      }
-    } else { // Try program2's value first
-      if (val2Suitable) {
-        valueForChild = p2Value;
-      } else if (val1Suitable) {
-        valueForChild = p1Value;
-      } else {
-        valueForChild = defaultNumericValue; // Fallback if neither is suitable
-      }
+    // Normalize return block: remove all existing returns, then add one at the end.
+    let non_return_blocks = raw_child_blocks.filter(block => block.blockName !== 'return');
+    
+    const MAX_BLOCKS = 50; // Max program length before the final 'return' block
+    if (non_return_blocks.length > MAX_BLOCKS) {
+        await log(`Crossover: Child program too long (${non_return_blocks.length} blocks), truncating to ${MAX_BLOCKS}.`, this.consoleLog);
+        non_return_blocks = non_return_blocks.slice(0, MAX_BLOCKS);
     }
     
-    // Final check if valueForChild ended up undefined (e.g. if parents had no blocks[0])
-    if (valueForChild === undefined) {
-        valueForChild = defaultNumericValue;
-    }
-
-    const childBlocks = [
-      {
-        blockName: 'set',
-        var: 'out', // 'out' is numeric
-        value: valueForChild
-      },
-      {
-        blockName: 'return',
-        inputs: ['out']
-      }
-    ];
-    // The ProgenyProgram constructor will perform the full validation.
-    return new ProgenyProgram(childBlocks, inputVariables, this.consoleLog);
+    const final_child_blocks = non_return_blocks.concat([{ blockName: 'return', inputs: ['out'] }]);
+    
+    // The ProgenyProgram constructor will validate these blocks and handle empty non_return_blocks.
+    return new ProgenyProgram(final_child_blocks, inputVariables, this.consoleLog);
   }
 
   // Run the genetic algorithm
@@ -122,10 +146,40 @@ export class Progeny {
       await log(`Trial ${trial + 1}/${trials}`, this.consoleLog);
       await this.initialize(testCase.inputs);
       for (let gen = 0; gen < this.maxGenerations; gen++) {
-        await this.select(testCase);
-        const newPopulation = [...this.population];
+        await log(`Generation ${gen + 1}/${this.maxGenerations}`, this.consoleLog);
+        await this.select(testCase); // select() now handles logging the generation's best internally.
+        
+        // Redundant logging block removed.
+
+        // Handle empty population after selection (if select could result in empty)
+        if (this.population.length === 0) { 
+            await warn("Population empty after selection in main loop. Re-initializing if not last gen.", this.consoleLog);
+            if (gen < this.maxGenerations - 1) {
+                await this.initialize(testCase.inputs);
+                if (this.population.length === 0) { // Still empty after re-init
+                    await error("Failed to re-initialize population. Aborting trial.", this.consoleLog);
+                    break; 
+                }
+            } else { // Last generation and population became empty
+                break; 
+            }
+        }
+
+        const newPopulation = []; // Start with elites
+        const numElites = 1; 
+
+        for (let i = 0; i < numElites && i < this.population.length; i++) {
+          newPopulation.push(this.population[i]);
+        }
+        
+        const parentPool = this.population; 
+
         while (newPopulation.length < this.populationSize) {
-          const parent1 = this.population[Math.floor(Math.random() * this.population.length)];
+          if (parentPool.length === 0) {
+             await error("Parent pool empty during offspring generation. Breaking.", this.consoleLog);
+             break;
+          }
+          const parent1 = parentPool[Math.floor(Math.random() * parentPool.length)];
           const parent2 = this.population[Math.floor(Math.random() * this.population.length)];
           const child = await this.crossover(parent1, parent2);
           if (Math.random() < 0.3) await child.mutate();

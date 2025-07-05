@@ -2,7 +2,7 @@ export const tests = {
   sumThreeNumbers: {
     inputs: ['x', 'y', 'z'],
     target: (x, y, z) => x + y + z,
-    generateCases: () => Array.from({ length: 5 }, () => {
+    generateCases: (numEvaluationCases) => Array.from({ length: numEvaluationCases }, () => {
       const inputs = {
         x: Math.round(Math.random() * 20 - 10) / 1,
         y: Math.round(Math.random() * 20 - 10) / 1,
@@ -14,7 +14,7 @@ export const tests = {
   squareNumber: {
     inputs: ['x'],
     target: (x) => x * x,
-    generateCases: () => Array.from({ length: 5 }, () => {
+    generateCases: (numEvaluationCases) => Array.from({ length: numEvaluationCases }, () => {
       const inputs = {
         x: Math.round(Math.random() * 20 - 10) / 1,
         y: 0,
@@ -26,7 +26,7 @@ export const tests = {
   multiplyBy4Subtract2: {
     inputs: ['x'],
     target: (x) => x * 4 - 2,
-    generateCases: () => Array.from({ length: 5 }, () => {
+    generateCases: (numEvaluationCases) => Array.from({ length: numEvaluationCases }, () => {
       const inputs = {
         x: Math.round(Math.random() * 20 - 10) / 1,
         y: 0,
@@ -38,7 +38,7 @@ export const tests = {
   quadraticEquation: {
     inputs: ['x', 'y', 'z'],
     target: (x, a, b) => a * x * x + b * x,
-    generateCases: () => Array.from({ length: 5 }, () => {
+    generateCases: (numEvaluationCases) => Array.from({ length: numEvaluationCases }, () => {
       const inputs = {
         x: Math.round(Math.random() * 20 - 10) / 1,
         y: Math.round(Math.random() * 20 - 10) / 1,
@@ -50,7 +50,7 @@ export const tests = {
   conditionalOutput: {
     inputs: ['x'],
     target: (x) => (x === 3 ? 3 : 0),
-    generateCases: () => Array.from({ length: 5 }, () => {
+    generateCases: (numEvaluationCases) => Array.from({ length: numEvaluationCases }, () => {
       const inputs = {
         x: Math.round(Math.random() * 20 - 10) / 1,
         y: 0,
@@ -62,7 +62,7 @@ export const tests = {
   absoluteValue: {
     inputs: ['x'],
     target: (x) => Math.abs(x),
-    generateCases: () => Array.from({ length: 5 }, () => {
+    generateCases: (numEvaluationCases) => Array.from({ length: numEvaluationCases }, () => {
       const inputs = {
         x: Math.round(Math.random() * 20 - 10) / 1,
         y: 0,
