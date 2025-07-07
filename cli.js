@@ -68,7 +68,7 @@ const commands = {
   },
   run: {
     aliases: ['r'],
-    flags: [['--fresh', '-f'], ['--console', '-c'], ['--trials', '-t'], ['--eval-cases', '-ec']],
+    flags: [['--fresh', '-f'], ['--console', '-c'], ['--trials', '-t'], ['--eval-cases', '-ec'], ['--eval-batches', '-eb']],
     description: 'Run genetic algorithm for a test case (e.g., sumThreeNumbers)',
     action: async (args) => {
       const fresh = args.includes('--fresh') || args.includes('-f');
@@ -88,23 +88,36 @@ const commands = {
 
       // Test case name processing
       // Argument for testCaseName is one that is not a flag and not the value for --trials/-t
-      // Also ensure it's not the value for --eval-cases/-ec
+      // Also ensure it's not the value for --eval-cases/-ec or --eval-batches/-eb
       const evalCasesIndex = args.findIndex(a => a === '--eval-cases' || a === '-ec');
-      let evaluationCasesCountForProgeny = undefined; // Let Progeny constructor use its default
+      let evaluationCasesCountForProgeny = undefined; 
 
       if (evalCasesIndex >= 0 && args[evalCasesIndex + 1]) {
         const parsedEvalCases = parseInt(args[evalCasesIndex + 1], 10);
         if (!isNaN(parsedEvalCases) && parsedEvalCases > 0) {
           evaluationCasesCountForProgeny = parsedEvalCases;
         } else {
-          console.log(chalk.yellow(`Invalid value for --eval-cases. Using Progeny default.`));
+          console.log(chalk.yellow(`Invalid value for --eval-cases. Using Progeny default (20).`));
+        }
+      }
+
+      const evalBatchesIndex = args.findIndex(a => a === '--eval-batches' || a === '-eb');
+      let numEvaluationBatchesForProgeny = undefined;
+
+      if (evalBatchesIndex >= 0 && args[evalBatchesIndex + 1]) {
+        const parsedEvalBatches = parseInt(args[evalBatchesIndex + 1], 10);
+        if (!isNaN(parsedEvalBatches) && parsedEvalBatches > 0) {
+          numEvaluationBatchesForProgeny = parsedEvalBatches;
+        } else {
+          console.log(chalk.yellow(`Invalid value for --eval-batches. Using Progeny default (1).`));
         }
       }
       
       const testCaseNameInput = args.find(a => 
         !a.startsWith('-') && 
         !(trialsIndex >= 0 && a === args[trialsIndex + 1]) &&
-        !(evalCasesIndex >= 0 && a === args[evalCasesIndex + 1])
+        !(evalCasesIndex >= 0 && a === args[evalCasesIndex + 1]) &&
+        !(evalBatchesIndex >= 0 && a === args[evalBatchesIndex + 1])
       );
 
       let testCaseName;
@@ -130,8 +143,8 @@ const commands = {
       }
 
       try {
-        // Pass population size, max generations, consoleLog, and evaluationCasesCount
-        const progeny = new Progeny(100, 50, consoleLog, evaluationCasesCountForProgeny);
+        // Pass population size, max generations, consoleLog, evaluationCasesCount, and numEvaluationBatches
+        const progeny = new Progeny(100, 50, consoleLog, evaluationCasesCountForProgeny, numEvaluationBatchesForProgeny);
         await progeny.run(testCase, trials);
         console.log(chalk.green('\nGenetic algorithm completed successfully.\n'));
       } catch (error) {

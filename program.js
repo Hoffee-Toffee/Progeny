@@ -18,6 +18,78 @@ function isValidProgramVariableName(varName, localInputVariables) {
   return dynamicVarPattern.test(varName);
 }
 
+// Helper to get all variables referenced/read by a value or block component.
+// valueOrBlock: Can be a primitive, a string (var name), or a block object.
+// inputVariables: The list of current program's input variable names.
+// consoleLog: For potential debug logging.
+// Returns: A Set of variable name strings.
+function getReferencedVariables(valueOrBlock, inputVariables, consoleLog = false) {
+  const referenced = new Set();
+
+  if (valueOrBlock === null || valueOrBlock === undefined) {
+    return referenced; // Null or undefined read no variables
+  }
+
+  if (typeof valueOrBlock === 'number' || typeof valueOrBlock === 'boolean') {
+    return referenced; // Literals read no variables
+  }
+
+  if (typeof valueOrBlock === 'string') {
+    // If the string is a known variable, it's being read.
+    if (isValidProgramVariableName(valueOrBlock, inputVariables)) {
+      referenced.add(valueOrBlock);
+    }
+    return referenced;
+  }
+
+  // If it's an object, assume it's a block structure
+  if (typeof valueOrBlock === 'object') {
+    const block = valueOrBlock; 
+
+    if (!block.blockName) { 
+        return referenced;
+    }
+
+    switch (block.blockName) {
+      case 'get':
+        if (block.inputs && typeof block.inputs[0] === 'string' && isValidProgramVariableName(block.inputs[0], inputVariables)) {
+          referenced.add(block.inputs[0]);
+        }
+        break;
+      case 'set':
+        if (block.hasOwnProperty('value')) {
+            const valueVars = getReferencedVariables(block.value, inputVariables, consoleLog);
+            valueVars.forEach(v => referenced.add(v));
+        }
+        break;
+      case 'if':
+      case 'ifElse':
+        if (block.hasOwnProperty('condition')) {
+            const conditionVars = getReferencedVariables(block.condition, inputVariables, consoleLog);
+            conditionVars.forEach(v => referenced.add(v));
+        }
+        // Not recursing into actions/elseActions for this top-level pass
+        break;
+      case 'return': 
+        if (block.inputs && block.inputs.length > 0) {
+            const returnInputVars = getReferencedVariables(block.inputs[0], inputVariables, consoleLog);
+            returnInputVars.forEach(v => referenced.add(v));
+        }
+        break;
+      default:
+        if (block.inputs && Array.isArray(block.inputs)) {
+          block.inputs.forEach(input => {
+            const inputVars = getReferencedVariables(input, inputVariables, consoleLog);
+            inputVars.forEach(v => referenced.add(v));
+          });
+        }
+        break;
+    }
+  }
+  return referenced;
+}
+
+
 function isValidValue(value, expectedType, inputVariables = [], consoleLog = false) {
   if (value === null || value === undefined) return false;
   if (expectedType === 'number') {
@@ -608,7 +680,77 @@ export class ProgenyProgram {
         }
       ];
     }
+    // Apply liveness-based dead store elimination after all mutations and resets
+    this.blocks = optimizeDeadStores(this.blocks, this.inputVariables, this.consoleLog);
   }
+}
+
+// Utility function for liveness-based dead store elimination (sequential code, if/else opaque)
+function optimizeDeadStores(blocks, inputVariables, consoleLog = false) {
+  if (!blocks || blocks.length === 0) {
+    return blocks;
+  }
+
+  const liveVariables = new Set();
+  const keptBlocks = []; // Will build this by adding to front, or push and reverse at end.
+
+  // Initialize liveness from the last block if it's a 'return' block.
+  const lastBlock = blocks[blocks.length - 1];
+  if (lastBlock.blockName === 'return') {
+    if (lastBlock.inputs && lastBlock.inputs.length > 0) {
+      const returnReads = getReferencedVariables(lastBlock.inputs[0], inputVariables, consoleLog);
+      returnReads.forEach(v => liveVariables.add(v));
+    }
+  } else {
+    // If program doesn't end with return, 'out' might be implicitly live.
+    // For this optimizer, only explicitly returned variables seed liveness initially.
+    // Or, we could assume 'out' is live if no return block.
+    // For now, this path means liveness starts empty if no return.
+    warn("optimizeDeadStores: Program does not end with a 'return' block. Initial liveness based on 'out' not automatically seeded.", consoleLog);
+  }
+  
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const currentBlock = blocks[i];
+    let isBlockKept = true; 
+    let blockSpecificLiveVars = new Set(); 
+
+    if (currentBlock.blockName === 'set') {
+      const varX = currentBlock.var;
+      const valueV = currentBlock.value;
+      blockSpecificLiveVars = getReferencedVariables(valueV, inputVariables, consoleLog);
+
+      if (liveVariables.has(varX)) { 
+        isBlockKept = true;
+        liveVariables.delete(varX); 
+      } else { 
+        // If varX is not live, this set is dead, unless varX is 'out' AND this is the last set to 'out'
+        // This simplified version doesn't track "last set to out" beyond what return makes live.
+        // If 'out' is not in liveVariables (e.g. `set out, A; set out, B; return B` -> first `set out,A` is dead)
+        // then this set is dead.
+        isBlockKept = false;
+      }
+    } else if (currentBlock.blockName === 'if' || currentBlock.blockName === 'ifElse') {
+      isBlockKept = true; // Kept unconditionally in this simplified version
+      blockSpecificLiveVars = getReferencedVariables(currentBlock.condition, inputVariables, consoleLog);
+      // Not analyzing branches for liveness impact on preceding code for now.
+    } else if (currentBlock.blockName === 'return') {
+      isBlockKept = true;
+      if (currentBlock.inputs && currentBlock.inputs.length > 0) {
+        blockSpecificLiveVars = getReferencedVariables(currentBlock.inputs[0], inputVariables, consoleLog);
+      }
+    } else { // Other block types (add, get as statement, etc.)
+      isBlockKept = true;
+      blockSpecificLiveVars = getReferencedVariables(currentBlock, inputVariables, consoleLog);
+    }
+
+    if (isBlockKept) {
+      keptBlocks.push(currentBlock); 
+    }
+    // Add variables that this (kept or not-kept 'set') block's components made live
+    blockSpecificLiveVars.forEach(v => liveVariables.add(v));
+  }
+
+  return keptBlocks.reverse(); 
 }
 
 function findReporterBlock(block, path = []) {

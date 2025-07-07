@@ -5,13 +5,21 @@ import blocks from './blocks.js'; // Import blocks definition
 
 const defaultNumericValue = 0; // Default numeric value for fallback in crossover
 const DEFAULT_EVALUATION_CASES = 20; // Default number of cases for fitness evaluation
+const DEFAULT_NUM_EVAL_BATCHES = 1; // Default number of batches for averaging fitness
 
 export class Progeny {
-  constructor(populationSize = 100, maxGenerations = 50, consoleLog = false, evaluationCasesCount = DEFAULT_EVALUATION_CASES) {
+  constructor(
+    populationSize = 100, 
+    maxGenerations = 50, 
+    consoleLog = false, 
+    evaluationCasesCount = DEFAULT_EVALUATION_CASES,
+    numEvaluationBatches = DEFAULT_NUM_EVAL_BATCHES 
+  ) {
     this.populationSize = populationSize;
     this.maxGenerations = maxGenerations;
     this.consoleLog = consoleLog;
     this.evaluationCasesCount = evaluationCasesCount;
+    this.numEvaluationBatches = numEvaluationBatches;
     this.population = [];
   }
 
@@ -48,11 +56,23 @@ export class Progeny {
       return; 
     }
 
-    // 1. Evaluate all programs and store fitness
+    // 1. Evaluate all programs and store fitness (averaged over batches)
     const evaluatedPopulation = await Promise.all(
       this.population.map(async (program) => {
-        const fitness = await this.evaluate(program, testCase);
-        return { program, fitness };
+        let totalFitnessScore = 0;
+        let actualBatchesRun = 0;
+        if (this.numEvaluationBatches <= 0) { // Should not happen with defaults/parsing
+            warn(`numEvaluationBatches is ${this.numEvaluationBatches}, defaulting to 1 for program evaluation.`, this.consoleLog);
+            this.numEvaluationBatches = 1;
+        }
+
+        for (let i = 0; i < this.numEvaluationBatches; i++) {
+          const singleBatchFitness = await this.evaluate(program, testCase);
+          totalFitnessScore += singleBatchFitness;
+          actualBatchesRun++;
+        }
+        const averageFitness = actualBatchesRun > 0 ? totalFitnessScore / actualBatchesRun : 0;
+        return { program, fitness: averageFitness };
       })
     );
 
