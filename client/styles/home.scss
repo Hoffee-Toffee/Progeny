@@ -1,0 +1,204 @@
+.blockly-home-title {
+  font-family: 'Fredoka One', 'Aber Mono', Arial, sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--main-text-col, #0a0f1a);
+  margin: 0 0 1.5rem 0;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+
+.blockly-home-select-label {
+  font-family: 'Fredoka One', 'Aber Mono', Arial, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #444;
+  margin-right: 0.5em;
+  letter-spacing: 0.01em;
+}
+
+.blockly-home-jslabel-btn svg {
+  font-size: 1.2em;
+  vertical-align: middle;
+}
+
+.blockly-home-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  background: #f8f9fb;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.blockly-home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+}
+
+.blockly-home-grid-toolbar {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.blockly-home-grid-jslabel {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.blockly-home-output-label {
+  font-size: 1.1rem;
+  color: #444;
+  margin: 0 0 0.5em 0;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-family: 'Fredoka One', 'Aber Mono', Arial, sans-serif;
+  font-weight: 500;
+}
+
+.blockly-home-jslabel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.blockly-home-jslabel-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.blockly-home-jslabel-btn {
+  padding: 0.3em 1em;
+  font-size: 0.95rem;
+  background: #eaeaea;
+  color: #333;
+  border: 1px solid #bbb;
+  border-radius: 0.3em;
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s;
+}
+.blockly-home-jslabel-btn:hover {
+  background: #d1cfff;
+  border-color: #7a5cff;
+}
+
+.blockly-home-grid-blockly {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.blockly-home-grid-output {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  min-width: 320px;
+  max-width: 500px;
+  background: #f4f4f4;
+  border-radius: 0.5rem;
+  padding: 0;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+  height: 100%;
+}
+
+.blockly-home-output-actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  display: flex;
+  gap: 0.5rem;
+}
+
+ .blockly-home-grid-toolbar select {
+   font-size: 1rem;
+  padding: 0.4em 2.2em 0.4em 0.8em;
+   border-radius: 0.4em;
+   border: 1.5px solid #bbb;
+   background: #fff;
+   appearance: none;
+   -webkit-appearance: none;
+   -moz-appearance: none;
+   background-image: url('data:image/svg+xml;utf8,<svg fill="%237a5cff" height="28" viewBox="0 0 28 28" width="28" xmlns="http://www.w3.org/2000/svg"><path d="M9.293 11.293a1 1 0 011.414 0L14 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>');
+   background-repeat: no-repeat;
+   background-position: right 0.3em center;
+   background-size: 1.7em;
+   padding-right: 1.3em;
+   min-width: 180px;
+   margin-right: 0.5em;
+   transition: border 0.2s, box-shadow 0.2s;
+   outline: none;
+   cursor: pointer;
+ 
+}
+.blockly-home-grid-toolbar select:focus, .blockly-home-grid-toolbar select:hover {
+  border-color: #7a5cff;
+  box-shadow: 0 0 0 2px #d1cfff;
+}
+
+@media (max-width: 900px) {
+  .blockly-home-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr 1fr;
+    gap: 1.5rem;
+  }
+  .blockly-home-grid-toolbar,
+  .blockly-home-grid-jslabel,
+  .blockly-home-grid-blockly,
+  .blockly-home-grid-output {
+    grid-column: 1 / 2;
+  }
+  .blockly-home-grid-jslabel {
+    grid-row: 2 / 3;
+  }
+  .blockly-home-grid-blockly {
+    grid-row: 3 / 4;
+  }
+  .blockly-home-grid-output {
+    grid-row: 4 / 5;
+  }
+}
+
+.blockly-home-blockly-area {
+  height: 400px;
+  width: 600px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+
+.blockly-home-code-output {
+  background: #eaeaea;
+  padding: 0.75em 1em;
+  border-radius: 0.3em;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  font-size: 1rem;
+  min-height: 100px;
+  color: #222;
+  margin: 0;
+  overflow-x: auto;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}

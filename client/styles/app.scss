@@ -1,0 +1,145 @@
+// Will minimize, use variables, and create theme sets with different colors
+
+:root {
+  --main-text-col: #0a0f1a;
+  --misc-col-1: #001122;
+  --dark-bg-col: #0d1626;
+  --bg-col: #0a2553;
+  --light-col: #1f3b6e;
+  --light-bg-col: #2c5aa0;
+  --bg-border-col: #0095fa;
+  --sec-hover-col: #30bfb3;
+  --main-hover-col: #00f2ea;
+  --misc-col-2: #223344;
+  --dark-lav: #444477;
+  --lav: #6e6e96;
+  // --lav: #36364a;
+  --light-lav: #8888bb;
+  --light-grey: #888888;
+  --dust-grey: #96966e;
+  --lav-white: #ccccff;
+  --sec-text-col: #ffffff;
+  --main-link-col: #ffff00;
+  --sec-link-col: #d7e300;
+  --tert-link-col: #bfbf30;
+  --button-yellow: #ffa500;
+  --button-sunset: #ff8f00;
+  --button-orange: #ff4500;
+  --button-tomato: #cb2600;
+  --button-red: #8b0000;
+  --scale: 1;
+  --layer-size: 16px;
+  --height-mult: 1;
+  --transition-time: 0.3s;
+}
+
+// @import url(https://db.onlinewebfonts.com/c/43366a6208b6906d46c7ef4b4c4eba0f?family=Aber+Mono);
+// @import url(https://db.onlinewebfonts.com/c/ed8b4476ce0cbdba6869859c2fd4ee44?family=Screener+W01+Regular);
+// @import url(https://db.onlinewebfonts.com/c/e36d832babb06da18be3bfd2adfddbd9?family=MagdaClean-Black);
+// @import url(https://db.onlinewebfonts.com/c/5165c0facbfede7afe6c9ef3fd635f11?family=Fredoka+One);
+@font-face {
+  font-family: 'Aber Mono';
+  src: url('https://db.onlinewebfonts.com/t/43366a6208b6906d46c7ef4b4c4eba0f.eot');
+  src:
+    url('https://db.onlinewebfonts.com/t/43366a6208b6906d46c7ef4b4c4eba0f.eot?#iefix')
+      format('embedded-opentype'),
+    url('https://db.onlinewebfonts.com/t/43366a6208b6906d46c7ef4b4c4eba0f.woff')
+      format('woff'),
+    url('https://db.onlinewebfonts.com/t/43366a6208b6906d46c7ef4b4c4eba0f.woff2')
+      format('woff2'),
+    url('https://db.onlinewebfonts.com/t/43366a6208b6906d46c7ef4b4c4eba0f.ttf')
+      format('truetype'),
+    url('https://db.onlinewebfonts.com/t/43366a6208b6906d46c7ef4b4c4eba0f.svg#Aber Mono')
+      format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+// @font-face{
+//   font-family: "Screener W01 Regular";
+//   src: url("https://db.onlinewebfonts.com/t/ed8b4476ce0cbdba6869859c2fd4ee44.eot");
+//   src: url("https://db.onlinewebfonts.com/t/ed8b4476ce0cbdba6869859c2fd4ee44.eot?#iefix")format("embedded-opentype"),
+//       url("https://db.onlinewebfonts.com/t/ed8b4476ce0cbdba6869859c2fd4ee44.woff")format("woff"),
+//       url("https://db.onlinewebfonts.com/t/ed8b4476ce0cbdba6869859c2fd4ee44.woff2")format("woff2"),
+//       url("https://db.onlinewebfonts.com/t/ed8b4476ce0cbdba6869859c2fd4ee44.ttf")format("truetype"),
+//       url("https://db.onlinewebfonts.com/t/ed8b4476ce0cbdba6869859c2fd4ee44.svg#Screener W01 Regular")format("svg");
+//   font-weight:normal;
+//   font-style:normal;
+//   font-display:swap;
+// }
+// @font-face{
+//   font-family: "MagdaClean-Black";
+//   src: url("https://db.onlinewebfonts.com/t/e36d832babb06da18be3bfd2adfddbd9.eot");
+//   src: url("https://db.onlinewebfonts.com/t/e36d832babb06da18be3bfd2adfddbd9.eot?#iefix")format("embedded-opentype"),
+//       url("https://db.onlinewebfonts.com/t/e36d832babb06da18be3bfd2adfddbd9.woff")format("woff"),
+//       url("https://db.onlinewebfonts.com/t/e36d832babb06da18be3bfd2adfddbd9.woff2")format("woff2"),
+//       url("https://db.onlinewebfonts.com/t/e36d832babb06da18be3bfd2adfddbd9.ttf")format("truetype"),
+//       url("https://db.onlinewebfonts.com/t/e36d832babb06da18be3bfd2adfddbd9.svg#MagdaClean-Black")format("svg");
+//   font-weight:normal;
+//   font-style:normal;
+//   font-display:swap;
+// }
+@font-face {
+  font-family: 'Fredoka One';
+  src: url('https://db.onlinewebfonts.com/t/5165c0facbfede7afe6c9ef3fd635f11.eot');
+  src:
+    url('https://db.onlinewebfonts.com/t/5165c0facbfede7afe6c9ef3fd635f11.eot?#iefix')
+      format('embedded-opentype'),
+    url('https://db.onlinewebfonts.com/t/5165c0facbfede7afe6c9ef3fd635f11.woff')
+      format('woff'),
+    url('https://db.onlinewebfonts.com/t/5165c0facbfede7afe6c9ef3fd635f11.woff2')
+      format('woff2'),
+    url('https://db.onlinewebfonts.com/t/5165c0facbfede7afe6c9ef3fd635f11.ttf')
+      format('truetype'),
+    url('https://db.onlinewebfonts.com/t/5165c0facbfede7afe6c9ef3fd635f11.svg#Fredoka One')
+      format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track-piece {
+  background-color: var(--misc-col-1);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--bg-border-col);
+  outline: 3px solid var(--misc-col-1);
+  outline-offset: -3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sec-hover-col);
+}
+
+* {
+  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande',
+    'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+
+html {
+  background: var(--dark-bg-col);
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: var(--dark-bg-col, #0d1626);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 3em;
+  overflow-y: auto;
+}
+
+.blockly-home-main {
+  margin-bottom: 0;
+}
