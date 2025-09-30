@@ -7,7 +7,17 @@ import '../styles/home.scss';
 import * as Blockly from 'blockly';
 import { javascriptGenerator } from 'blockly/javascript';
 
-import blockConfig from '../files/blocks.ts';
+import blocks from '../files/blocks.ts';
+
+// Category color mapping (moved from blockColors.ts)
+const blockCategoryColors: Record<string, number> = {
+  Math: 230,
+  Logic: 210,
+  Variables: 120,
+  Functions: 290,
+  Output: 20,
+  // Add more categories as needed
+};
 import { tests, TestProblem } from '../files/tests.ts';
 import { faCopy, faDownload } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -103,7 +113,7 @@ export default function Home() {
       'Best Program Found!\nFitness: ' +
       (best ? (await progeny.evaluate(best, testCase)).toFixed(4) : 'N/A') +
       '\nBlocks: ' +
-      JSON.stringify(best?.blocks, null, 2);
+      JSON.stringify(best, null, 2);
     setRunResult(resultText);
   };
   // Copy/download handlers
@@ -197,13 +207,19 @@ export default function Home() {
     toolboxXml.id = 'toolbox';
     toolboxXml.style.display = 'none';
 
-    blockConfig.categories.forEach((category) => {
-      Object.entries(category.blocks).forEach(([type, block]: [string, any]) => {
+    // Group blocks by category
+    const blocksByCategory: Record<string, [string, any][]> = {};
+    Object.entries(blocks).forEach(([type, block]: [string, any]) => {
+      if (!blocksByCategory[block.category]) blocksByCategory[block.category] = [];
+      blocksByCategory[block.category].push([type, block]);
+    });
+    Object.entries(blocksByCategory).forEach(([category, blockList]) => {
+      blockList.forEach(([type, block]) => {
         const fullType = `custom_${type}`;
         const { jsGenerator, mutations, ...blockDefRest } = block;
         const blockDef = {
           type: fullType,
-          colour: category.colour,
+          colour: blockCategoryColors[category] || 242,
           tooltip: block.tooltip || '',
           helpUrl: block.helpUrl || '',
           ...blockDefRest,
@@ -249,27 +265,23 @@ export default function Home() {
     javascriptGenerator.forBlock[mainBlockType] = mainBlockDef.jsGenerator;
 
     // Build toolbox XML (add main block to Functions category)
-    blockConfig.categories.forEach((category) => {
-      if (category.name === 'Functions') {
-        const catElem = document.createElement('category');
-        catElem.setAttribute('name', category.name);
-        catElem.setAttribute('colour', category.colour.toString());
+    Object.entries(blocksByCategory).forEach(([category, blockList]) => {
+      const catElem = document.createElement('category');
+      catElem.setAttribute('name', category);
+      catElem.setAttribute('colour', (blockCategoryColors[category] || 242).toString());
+      blockList.forEach(([type]) => {
+        const fullType = `custom_${type}`;
+        const blockElem = document.createElement('block');
+        blockElem.setAttribute('type', fullType);
+        catElem.appendChild(blockElem);
+      });
+      // Add main block to Functions category
+      if (category === 'Functions') {
         const blockElem = document.createElement('block');
         blockElem.setAttribute('type', mainBlockType);
         catElem.appendChild(blockElem);
-        toolboxXml.appendChild(catElem);
-      } else {
-        const catElem = document.createElement('category');
-        catElem.setAttribute('name', category.name);
-        catElem.setAttribute('colour', category.colour.toString());
-        Object.entries(category.blocks).forEach(([type]) => {
-          const fullType = `custom_${type}`;
-          const blockElem = document.createElement('block');
-          blockElem.setAttribute('type', fullType);
-          catElem.appendChild(blockElem);
-        });
-        toolboxXml.appendChild(catElem);
       }
+      toolboxXml.appendChild(catElem);
     });
 
     try {

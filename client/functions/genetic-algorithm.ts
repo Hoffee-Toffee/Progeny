@@ -1,13 +1,41 @@
-import { ProgenyProgram, optimizeDeadStores } from './program'
-import { tests, TestProblem } from '../files/tests'
-import blocks from '../files/blocks'
+// --- Subtree utilities for mutation/crossover ---
+function collectSubBlocks(block: Block, parent: Block | null = null, index: number | null = null, path: Array<{ block: Block, parent: Block | null, index: number | null }> = []): Array<{ block: Block, parent: Block | null, index: number | null }> {
+  path.push({ block, parent, index });
+  if (Array.isArray(block.inputs)) {
+    block.inputs.forEach((input, i) => {
+      if (input && typeof input === 'object' && 'blockName' in input) {
+        collectSubBlocks(input as Block, block, i, path);
+      }
+    });
+  }
+  return path;
+}
+
+function replaceSubBlock(root: Block, target: Block, replacement: Block): Block {
+  if (root === target) return replacement;
+  if (!Array.isArray(root.inputs)) return root;
+  const newInputs = root.inputs.map((input) => {
+    if (input === target) return replacement;
+    if (input && typeof input === 'object' && 'blockName' in input) {
+      return replaceSubBlock(input as Block, target, replacement);
+    }
+    return input;
+  });
+  return { ...root, inputs: newInputs };
+}
+// Direct JS-to-TS conversion of genetic-algorithm.js (first pass)
+
+// Imports will be updated in the next step for correct types and APIs
+
 import { log, logBestProgram } from './logger'
+import { generateInput, ProgenyProgram } from './program'
+import type { Block } from '../files/blocks'
+import type { TestProblem } from '../files/tests'
 
-const defaultNumericValue = 0
-const DEFAULT_EVALUATION_CASES = 100
-const DEFAULT_NUM_EVAL_BATCHES = 5 // Increased from 1 for less noise
+const DEFAULT_EVALUATION_CASES = 20
+const DEFAULT_NUM_EVAL_BATCHES = 1
 
-export class Progeny {
+export class ProgenyGA {
   populationSize: number
   maxGenerations: number
   consoleLog: boolean
@@ -16,8 +44,8 @@ export class Progeny {
   population: ProgenyProgram[]
 
   constructor(
-    populationSize = 200,
-    maxGenerations = 100,
+    populationSize = 100,
+    maxGenerations = 50,
     consoleLog = false,
     evaluationCasesCount = DEFAULT_EVALUATION_CASES,
     numEvaluationBatches = DEFAULT_NUM_EVAL_BATCHES,
@@ -26,86 +54,78 @@ export class Progeny {
     this.maxGenerations = maxGenerations
     this.consoleLog = consoleLog
     this.evaluationCasesCount = evaluationCasesCount
-    this.numEvaluationBatches = numEvaluationBatches || DEFAULT_NUM_EVAL_BATCHES
+    this.numEvaluationBatches = numEvaluationBatches
     this.population = []
   }
 
-  // Initialize population (diverse random programs)
-  async initialize(testInputs: any): Promise<void> {
-    const inputVariableNames = testInputs.map((i: any) => i.name)
-    const programPromises = Array.from(
-      { length: this.populationSize },
-      async () => {
-        const randomBlocks: import('../files/blocks').Block[] = []
-        const numInitialBlocks = Math.floor(Math.random() * 21) + 5 // 5-25 blocks for variety
-        for (let j = 0; j < numInitialBlocks; j++) {
-          const randomBlock = await ProgenyProgram.generateRandomBlock(
-            0, // depth
-            5, // maxDepth increased for complexity
-            false,
-            null,
-            inputVariableNames, // inputVariables
-            this.consoleLog,
-          )
-          randomBlocks.push(randomBlock)
-        }
-        randomBlocks.push({ blockName: 'return', inputs: ['out'] })
-        return new ProgenyProgram(
-          randomBlocks,
-          inputVariableNames,
-          this.consoleLog,
-        )
-      },
-    )
+  // Initialize population with random block programs using dynamic block selection
+  async initialize(testInputs: { name: string; type: string }[]) {
+    const inputVars = testInputs.map((i) => i.name)
+    const programPromises = Array.from({ length: this.populationSize }, () => {
+      // Dynamically generate a valid value expression for set_number using block output types
+      const valueExpr = generateInput('number', inputVars, 0, 2) as
+        | string
+        | number
+        | boolean
+        | import('../files/blocks').Block
+      const setBlock = {
+        blockName: 'set_number',
+        inputs: ['out', valueExpr],
+      }
+      const getBlock = {
+        blockName: 'get_number',
+        inputs: ['out'],
+      }
+      // Optionally, add more statements or randomize block order for diversity
+      return ProgenyProgram.create(
+        [setBlock, getBlock],
+        testInputs,
+        this.consoleLog,
+      )
+    })
     this.population = await Promise.all(programPromises)
     const avgLength =
       this.population.reduce((sum, p) => sum + p.blocks.length, 0) /
       this.population.length
     await log(
-      `Initial population: ${this.population.length} programs, avg length: ${avgLength.toFixed(2)} blocks`,
+      `Initial population: ${
+        this.population.length
+      } programs, avg length: ${avgLength.toFixed(2)} blocks`,
       this.consoleLog,
     )
   }
 
-  // Evaluate fitness
+  // Evaluate fitness of a program (array of blocks)
   async evaluate(
     program: ProgenyProgram,
-    testCase: TestProblem<unknown, unknown>,
-    cases?: any[],
+    testCase: TestProblem<Record<string, unknown>, unknown>,
   ): Promise<number> {
     let error = 0
-    const evaluationCases =
-      cases || testCase.generateCases(this.evaluationCasesCount)
-    for (const { inputs, expected } of evaluationCases) {
+    const cases = testCase.generateCases(this.evaluationCasesCount)
+    for (const { inputs, expected } of cases) {
       const result = await program.run(inputs)
       if (typeof result !== 'number') {
         await log(`Non-numeric output: ${result}`, this.consoleLog)
         return 0
       }
-      error += Math.abs(result - expected)
+      error += Math.abs(result - (expected as number))
     }
-    const fitness = 1 / (1 + error)
-    return fitness
+    return 1 / (1 + error)
   }
 
   // Select top programs
-  async select(testCase: TestProblem<unknown, unknown>): Promise<void> {
+  async select(testCase: TestProblem<Record<string, unknown>, unknown>) {
     if (this.population.length === 0) {
       await log('Select: Population is empty, cannot select.', this.consoleLog)
       return
     }
-
     // 1. Evaluate all programs and store fitness (averaged over batches)
-    const cases = testCase.generateCases(this.evaluationCasesCount)
     const evaluatedPopulation = await Promise.all(
       this.population.map(async (program) => {
         let totalFitnessScore = 0
         let actualBatchesRun = 0
-        if (this.numEvaluationBatches <= 0) {
-          this.numEvaluationBatches = 1
-        }
         for (let i = 0; i < this.numEvaluationBatches; i++) {
-          const singleBatchFitness = await this.evaluate(program, testCase, cases)
+          const singleBatchFitness = await this.evaluate(program, testCase)
           totalFitnessScore += singleBatchFitness
           actualBatchesRun++
         }
@@ -114,10 +134,8 @@ export class Progeny {
         return { program, fitness: averageFitness }
       }),
     )
-
     // 2. Sort based on stored fitness (descending)
     evaluatedPopulation.sort((a, b) => b.fitness - a.fitness)
-
     // 3. Log the best program of this entire generation (before truncation)
     if (evaluatedPopulation.length > 0) {
       const bestProgramOfGeneration = evaluatedPopulation[0].program
@@ -125,23 +143,25 @@ export class Progeny {
       const programJson = JSON.stringify(bestProgramOfGeneration.blocks)
       await logBestProgram(programJson, this.consoleLog)
       await log(
-        `Gen Best Fitness: ${bestFitnessOfGeneration.toFixed(4)} (program logged to best_programs.log)`,
+        `Gen Best Fitness: ${bestFitnessOfGeneration.toFixed(
+          4,
+        )} (program logged to best_programs.log)`,
         this.consoleLog,
       )
     }
-
     // 4. Truncate to form the new parent pool for this.population
     const selectionSize = Math.floor(this.populationSize / 2)
     const selectedSurvivors = evaluatedPopulation.slice(0, selectionSize)
     this.population = selectedSurvivors.map((item) => item.program)
-
     if (this.population.length > 0) {
       const bestSurvivorFitness = await this.evaluate(
         this.population[0],
         testCase,
       )
       await log(
-        `Select: Kept ${this.population.length} survivors. Best survivor fitness: ${bestSurvivorFitness.toFixed(4)}`,
+        `Select: Kept ${
+          this.population.length
+        } survivors. Best survivor fitness: ${bestSurvivorFitness.toFixed(4)}`,
         this.consoleLog,
       )
     } else {
@@ -149,171 +169,136 @@ export class Progeny {
     }
   }
 
-  // Crossover two programs - One-point crossover for block lists
+  // Crossover two programs (block arrays) with subtree crossover
   async crossover(
     program1: ProgenyProgram,
     program2: ProgenyProgram,
   ): Promise<ProgenyProgram> {
-    const p1_blocks = program1.blocks
-    const p2_blocks = program2.blocks
-    const inputVariables = program1.inputVariables
+    const p1_blocks = program1.blocks;
+    const p2_blocks = program2.blocks;
+    const inputVariables = program1.inputVariables;
+    // Defensive: fallback to random if both are empty
     if (p1_blocks.length === 0 && p2_blocks.length === 0) {
-      await log(
-        'Crossover: Both parents empty, creating default program for child.',
+      return ProgenyProgram.create(
+        [],
+        inputVariables.map((name) => ({ name, type: 'number' })),
         this.consoleLog,
-      )
-      return ProgenyProgram.create([], inputVariables, this.consoleLog, [])
+      );
     }
-    if (p1_blocks.length === 0) {
-      await log(
-        'Crossover: Parent 1 empty, cloning Parent 2 for child.',
-        this.consoleLog,
-      )
+    if (p1_blocks.length === 0)
       return new ProgenyProgram(
         JSON.parse(JSON.stringify(p2_blocks)),
         inputVariables,
         this.consoleLog,
-        [program2.id],
-      )
-    }
-    if (p2_blocks.length === 0) {
-      await log(
-        'Crossover: Parent 2 empty, cloning Parent 1 for child.',
-        this.consoleLog,
-      )
+      );
+    if (p2_blocks.length === 0)
       return new ProgenyProgram(
         JSON.parse(JSON.stringify(p1_blocks)),
         inputVariables,
         this.consoleLog,
-        [program1.id],
-      )
+      );
+    // Subtree crossover: pick a random block from each parent and swap subtrees
+    // Only operate on the value input of set_number for now (main expression tree)
+    const setBlock1 = p1_blocks.find(b => b.blockName === 'set_number');
+    const setBlock2 = p2_blocks.find(b => b.blockName === 'set_number');
+    if (!setBlock1 || !setBlock2 || !Array.isArray(setBlock1.inputs) || !Array.isArray(setBlock2.inputs) || setBlock1.inputs.length < 2 || setBlock2.inputs.length < 2) {
+      // Fallback to top-level crossover
+      return new ProgenyProgram(JSON.parse(JSON.stringify(p1_blocks)), inputVariables, this.consoleLog);
     }
-    const cp1 = Math.floor(Math.random() * (p1_blocks.length + 1))
-    const cp2 = Math.floor(Math.random() * (p2_blocks.length + 1))
-    const segment1 = JSON.parse(JSON.stringify(p1_blocks.slice(0, cp1)))
-    const segment2 = JSON.parse(JSON.stringify(p2_blocks.slice(cp2)))
-    const raw_child_blocks = segment1.concat(segment2)
-    let non_return_blocks = raw_child_blocks.filter(
-      (block: any) => block.blockName !== 'return',
-    )
-    const MAX_BLOCKS = 20
-    if (non_return_blocks.length > MAX_BLOCKS) {
-      await log(
-        `Crossover: Child program too long (${non_return_blocks.length} blocks), truncating to ${MAX_BLOCKS}.`,
-        this.consoleLog,
-      )
-      non_return_blocks = non_return_blocks.slice(0, MAX_BLOCKS)
-    }
-    const final_child_blocks = non_return_blocks.concat([
-      { blockName: 'return', inputs: ['out'] },
-    ])
-    const childProgram = new ProgenyProgram(
-      final_child_blocks,
-      inputVariables,
-      this.consoleLog,
-      [program1.id, program2.id],
-    )
-    childProgram.blocks = optimizeDeadStores(
-      childProgram.blocks,
-      inputVariables,
-      this.consoleLog,
-    )
-    return childProgram
+    const expr1 = setBlock1.inputs[1] as Block;
+    const expr2 = setBlock2.inputs[1] as Block;
+    // Collect all sub-blocks (including root)
+    const subBlocks1 = collectSubBlocks(expr1);
+    const subBlocks2 = collectSubBlocks(expr2);
+    // Pick random subtree from each
+    const pick1 = subBlocks1[Math.floor(Math.random() * subBlocks1.length)];
+    const pick2 = subBlocks2[Math.floor(Math.random() * subBlocks2.length)];
+    // Swap subtrees
+    const newExpr1 = replaceSubBlock(expr1, pick1.block, pick2.block);
+    // Build new child program
+    const childSetBlock = { ...setBlock1, inputs: [setBlock1.inputs[0], newExpr1] };
+    const getBlock = p1_blocks.find(b => b.blockName === 'get_number') || { blockName: 'get_number', inputs: ['out'] };
+    const childBlocks = [childSetBlock, getBlock];
+    return new ProgenyProgram(childBlocks, inputVariables, this.consoleLog);
   }
 
-  // Run the genetic algorithm (batched eval, always mutate, log new pop best)
+  // Run the genetic algorithm
   async run(
-    testCase: TestProblem<any, any>,
+    testCase: TestProblem<Record<string, unknown>, unknown>,
     trials = 10,
-  ): Promise<ProgenyProgram | null> {
+  ): Promise<ProgenyProgram> {
     let bestProgram: ProgenyProgram | null = null
     let bestFitness = -Infinity
-
     for (let trial = 0; trial < trials; trial++) {
       await log(`Trial ${trial + 1}/${trials}`, this.consoleLog)
       await this.initialize(testCase.inputs)
-      const cases = testCase.generateCases(this.evaluationCasesCount)
       for (let gen = 0; gen < this.maxGenerations; gen++) {
-        // Batched evaluation for accuracy
-        const evaluatedPopulation = await Promise.all(
-          this.population.map(async (program) => {
-            let totalFitness = 0
-            for (let i = 0; i < this.numEvaluationBatches; i++) {
-              totalFitness += await this.evaluate(program, testCase, cases)
-            }
-            return {
-              program,
-              fitness: totalFitness / this.numEvaluationBatches,
-            }
-          }),
+        await log(
+          `Generation ${gen + 1}/${this.maxGenerations}`,
+          this.consoleLog,
         )
-        evaluatedPopulation.sort((a, b) => b.fitness - a.fitness)
-
+        await this.select(testCase)
+        if (this.population.length === 0) {
+          if (gen < this.maxGenerations - 1) {
+            await this.initialize(testCase.inputs)
+            if (this.population.length === 0) break
+          } else {
+            break
+          }
+        }
+        const newPopulation: ProgenyProgram[] = []
         const numElites = 1
-        const elites = evaluatedPopulation
-          .slice(0, numElites)
-          .map((pf) => pf.program)
-        const survivors = evaluatedPopulation
-          .slice(0, Math.floor(this.populationSize / 2))
-          .map((pf) => pf.program)
-
-        const newPopulation: ProgenyProgram[] = [...elites]
+        for (let i = 0; i < numElites && i < this.population.length; i++) {
+          newPopulation.push(this.population[i])
+        }
+        const parentPool = this.population
         while (newPopulation.length < this.populationSize) {
+          if (parentPool.length === 0) break
           const parent1 =
-            survivors[Math.floor(Math.random() * survivors.length)]
+            parentPool[Math.floor(Math.random() * parentPool.length)]
           const parent2 =
-            survivors[Math.floor(Math.random() * survivors.length)]
+            this.population[Math.floor(Math.random() * this.population.length)]
           const child = await this.crossover(parent1, parent2)
+          // Subtree mutation: with some probability, replace a random subtree in the main expression
           if (Math.random() < 0.3) {
-            await child.mutate()
+            const setBlock = child.blocks.find(b => b.blockName === 'set_number');
+            if (setBlock && setBlock.inputs && setBlock.inputs.length > 1) {
+              const expr = setBlock.inputs[1] as Block;
+              const subBlocks = collectSubBlocks(expr);
+              const pick = subBlocks[Math.floor(Math.random() * subBlocks.length)];
+              const newSubtree = generateInput('number', testCase.inputs.map(i => i.name), 0, 2) as Block;
+              const newExpr = replaceSubBlock(expr, pick.block, newSubtree);
+              setBlock.inputs[1] = newExpr;
+            }
           }
           newPopulation.push(child)
         }
         this.population = newPopulation
-
-        // Log best of NEW population
-        const newFitnesses = await Promise.all(
-          newPopulation.map((p) => this.evaluate(p, testCase, cases)),
-        )
-        const bestNewFitness = Math.max(...newFitnesses)
-        await log(
-          `Gen ${gen + 1}: Best fitness: ${bestNewFitness.toFixed(4)}`,
-          this.consoleLog,
-        )
       }
-      // After all generations, evaluate best in final population
-      const fitnesses = await Promise.all(
-        this.population.map((program) => this.evaluate(program, testCase, cases)),
-      )
-      const popWithFitness = this.population.map((program, i) => ({
-        program,
-        fitness: fitnesses[i],
-      }))
-      popWithFitness.sort((a, b) => b.fitness - a.fitness)
-
-      await log(`Top 3 programs for trial ${trial + 1}:`, this.consoleLog)
-      for (let i = 0; i < Math.min(3, popWithFitness.length); i++) {
-        const { program, fitness } = popWithFitness[i]
-        const error = fitness > 0 ? 1 / fitness - 1 : Infinity
-        await log(
-          `  ${i + 1}. Fitness: ${fitness.toFixed(4)}, Error: ${error.toFixed(4)}\n    Blocks: ${JSON.stringify(program.blocks, null, 2)}`,
-          this.consoleLog,
-        )
-      }
-
-      if (popWithFitness.length > 0) {
-        const trialBest = popWithFitness[0].program
-        const trialFitness = popWithFitness[0].fitness
-        if (trialFitness > bestFitness) {
-          bestFitness = trialFitness
-          bestProgram = trialBest
-        }
+      const trialBest = this.population[0]
+      const trialFitness = await this.evaluate(trialBest, testCase)
+      if (trialFitness > bestFitness) {
+        bestFitness = trialFitness
+        bestProgram = trialBest
       }
     }
     await log(
-      `Best Program Overall (Fitness: ${bestFitness.toFixed(4)}):\n${JSON.stringify(bestProgram?.blocks, null, 2)}`,
+      `Best Program (Fitness: ${bestFitness.toFixed(4)}):\n${JSON.stringify(
+        bestProgram?.blocks,
+        null,
+        2,
+      )}`,
       this.consoleLog,
     )
-    return bestProgram
+    if (bestProgram) return bestProgram
+    // Fallback: return a trivial program if none found
+    return new ProgenyProgram(
+      [
+        { blockName: 'set_number', inputs: ['out', 0] },
+        { blockName: 'get_number', inputs: ['out'] },
+      ],
+      [],
+      this.consoleLog,
+    )
   }
 }
