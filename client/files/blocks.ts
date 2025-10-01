@@ -120,14 +120,190 @@ const getVarName = (
   return varId
 }
 export default {
-  categories: [
-    {
-      name: 'Variables',
-      colour: 283, // Purple
-      blocks: {
-        set_number: {
-          message0: 'set number %1 to %2',
-          args0: [
+  set_number: {
+    category: 'Variables',
+    message0: 'set number %1 to %2',
+    args0: [
+      {
+        type: 'field_variable',
+        name: 'VAR',
+        variable: 'x',
+        variableTypes: ['Number'],
+        defaultType: 'Number',
+      },
+      {
+        type: 'input_value',
+        name: 'VALUE',
+        check: 'Number',
+      },
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    tooltip: 'Sets a variable to a value',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const variable = getVarName(block, generator, 'VAR')
+      const value =
+        generator.valueToCode(block, 'VALUE', generator.ORDER_ASSIGNMENT) || '0'
+      return `${variable} = ${value};\n`
+    },
+    action: function (variable: string, value: any, state: any) {
+      state.vars[variable] = value
+      return value
+    },
+    mutations: [
+      // Self-Assignment
+      {
+        condition: function (block: Block) {
+          const valueBlock = getInput(block, 'VALUE')
+          if (!valueBlock || valueBlock.type !== 'get_number') return false
+          const getVar = (b: any) =>
+            typeof b.getFieldValue === 'function'
+              ? b.getFieldValue('VAR')
+              : b.var
+          return getVar(valueBlock) === getVar(block)
+        },
+        change: () => [],
+      },
+    ],
+  },
+  get_number: {
+    category: 'Variables',
+    message0: 'get number %1',
+    args0: [
+      {
+        type: 'field_variable',
+        name: 'VAR',
+        variable: 'x',
+        variableTypes: ['Number'],
+        defaultType: 'Number',
+      },
+    ],
+    variableTypes: ['Number'],
+    output: 'Number',
+    tooltip: 'Gets the value of a variable',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const variable = getVarName(block, generator, 'VAR')
+      return [variable, generator.ORDER_ATOMIC]
+    },
+    action: (variable: string, state: any) => state.vars[variable],
+    mutations: [],
+  },
+  set_boolean: {
+    category: 'Variables',
+    message0: 'set boolean %1 to %2',
+    args0: [
+      {
+        type: 'field_variable',
+        name: 'VAR',
+        variable: 'x',
+        variableTypes: ['Boolean'],
+        defaultType: 'Boolean',
+      },
+      {
+        type: 'input_value',
+        name: 'VALUE',
+        check: 'Boolean',
+      },
+    ],
+    variableTypes: ['Boolean'],
+    previousStatement: null,
+    nextStatement: null,
+    tooltip: 'Sets a variable to a value',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const variable = getVarName(block, generator, 'VAR')
+      const value =
+        generator.valueToCode(block, 'VALUE', generator.ORDER_ASSIGNMENT) ||
+        'false'
+      return `${variable} = ${value};\n`
+    },
+    action: (variable: string, value: any, state: any) =>
+      (state.vars[variable] = value),
+    mutations: [
+      // Self-Assignment
+      {
+        condition: (block: Block) => {
+          const valueBlock = getInput(block, 'VALUE')
+          if (!valueBlock || valueBlock.type !== 'get_boolean') return false
+          const getVar = (b: any) =>
+            typeof b.getFieldValue === 'function'
+              ? b.getFieldValue('VAR')
+              : b.var
+          return getVar(valueBlock) === getVar(block)
+        },
+        change: () => [],
+      },
+    ],
+  },
+  get_boolean: {
+    category: 'Variables',
+    message0: 'get boolean %1',
+    args0: [
+      {
+        type: 'field_variable',
+        name: 'VAR',
+        variable: 'x',
+        variableTypes: ['Boolean'],
+        defaultType: 'Boolean',
+      },
+    ],
+    variableTypes: ['Boolean'],
+    output: 'boolean',
+    tooltip: 'Gets the value of a variable',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const variable = getVarName(block, generator, 'VAR')
+      return [variable, generator.ORDER_ATOMIC]
+    },
+    action: (variable: string, state: any) => state.vars[variable],
+    mutations: [],
+  },
+  add: {
+    category: 'Math',
+    message0: '%1 + %2',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'A',
+        check: 'Number',
+      },
+      {
+        type: 'input_value',
+        name: 'B',
+        check: 'Number',
+      },
+    ],
+    output: 'Number',
+    inputsInline: true,
+    tooltip: 'Adds two numbers',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const a =
+        generator.valueToCode(block, 'A', generator.ORDER_ADDITION) || '0'
+      const b =
+        generator.valueToCode(block, 'B', generator.ORDER_ADDITION) || '0'
+      const code = `${a} + ${b}`
+      return [code, generator.ORDER_ADDITION]
+    },
+    action: (a: number, b: number) => a + b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return !!(
+            inputA &&
+            inputB &&
+            inputA.id !== undefined &&
+            inputA.id === inputB.id
+          )
+        },
+        change: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          if (!inputA) return []
+          return [
             {
               type: 'field_variable',
               name: 'VAR',
@@ -257,235 +433,13 @@ export default {
         },
       },
     },
-    {
-      name: 'Math',
-      colour: 213, // Blue
-      blocks: {
-        add: {
-          message0: '%1 + %2',
-          args0: [
-            {
-              type: 'input_value',
-              name: 'A',
-              check: 'Number',
-            },
-            {
-              type: 'input_value',
-              name: 'B',
-              check: 'Number',
-            },
-          ],
-          output: 'Number',
-          inputsInline: true,
-          tooltip: 'Adds two numbers',
-          helpUrl: '',
-          jsGenerator: function (block: Block, generator: Generator) {
-            const a =
-              generator.valueToCode(block, 'A', generator.ORDER_ADDITION) || '0'
-            const b =
-              generator.valueToCode(block, 'B', generator.ORDER_ADDITION) || '0'
-            const code = `${a} + ${b}`
-            return [code, generator.ORDER_ADDITION]
-          },
-          mutations: [
-            {
-              condition: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                return !!(
-                  inputA &&
-                  inputB &&
-                  inputA.id !== undefined &&
-                  inputA.id === inputB.id
-                )
-              },
-              change: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                if (!inputA) return []
-                return [
-                  {
-                    blockName: 'multiply',
-                    inputs: [
-                      inputA,
-                      { blockName: 'number', values: { NUM: 2 } },
-                    ],
-                  },
-                ]
-              },
-            },
-            {
-              condition: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                const getNum = (b: any) =>
-                  b &&
-                  (typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : b.values && typeof b.values.NUM !== 'undefined'
-                      ? Number(b.values.NUM)
-                      : typeof b.NUM !== 'undefined'
-                        ? Number(b.NUM)
-                        : NaN)
-                if (
-                  inputA &&
-                  typeof inputA.type === 'string' &&
-                  inputA.type === 'custom_number' &&
-                  getNum(inputA) === 0
-                )
-                  return true
-                if (
-                  inputB &&
-                  typeof inputB.type === 'string' &&
-                  inputB.type === 'custom_number' &&
-                  getNum(inputB) === 0
-                )
-                  return true
-                return false
-              },
-              change: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                if (!inputA || !inputB) return []
-                const getNum = (b: any) =>
-                  typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : typeof b.values === 'object' &&
-                        b.values &&
-                        typeof b.values.NUM === 'number'
-                      ? Number(b.values.NUM)
-                      : NaN
-                if (inputA && getNum(inputA) === 0) return inputB
-                if (inputB && getNum(inputB) === 0) return inputA
-                return []
-              },
-            },
-            {
-              condition: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                const getNum = (b: any) =>
-                  b &&
-                  (typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : typeof b.values === 'object' &&
-                        b.values &&
-                        typeof b.values.NUM === 'number'
-                      ? Number(b.values.NUM)
-                      : NaN)
-                return (
-                  inputA &&
-                  inputB &&
-                  typeof inputA.type === 'string' &&
-                  typeof inputB.type === 'string' &&
-                  inputA.type === 'custom_number' &&
-                  inputB.type === 'custom_number' &&
-                  !isNaN(getNum(inputA)) &&
-                  !isNaN(getNum(inputB))
-                )
-              },
-              change: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                const getNum = (b: any) =>
-                  typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : typeof b.values === 'object' &&
-                        b.values &&
-                        typeof b.values.NUM === 'number'
-                      ? Number(b.values.NUM)
-                      : NaN
-                return [
-                  {
-                    blockName: 'number',
-                    values: {
-                      NUM: getNum(inputA) + getNum(inputB),
-                    },
-                  },
-                ]
-              },
-            },
-            {
-              condition: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                return (
-                  (inputA &&
-                    typeof inputA.type === 'string' &&
-                    inputA.type === 'custom_negate') ||
-                  (inputB &&
-                    typeof inputB.type === 'string' &&
-                    inputB.type === 'custom_negate')
-                )
-              },
-              change: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                const otherInput =
-                  inputA && inputA.type === 'custom_negate' ? inputB : inputA
-                const negatedInput =
-                  inputA && inputA.type === 'custom_negate' ? inputA : inputB
-                const negatedInner = getInput(negatedInput, 'INPUT')
-                return [
-                  {
-                    blockName: 'subtract',
-                    inputs: [otherInput, negatedInner],
-                  },
-                ]
-              },
-            },
-            {
-              condition: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                const getNum = (b: any) =>
-                  b &&
-                  (typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : typeof b.values === 'object' &&
-                        b.values &&
-                        typeof b.values.NUM === 'number'
-                      ? Number(b.values.NUM)
-                      : NaN)
-                return (
-                  (inputA &&
-                    typeof inputA.type === 'string' &&
-                    inputA.type === 'custom_number' &&
-                    getNum(inputA) < 0) ||
-                  (inputB &&
-                    typeof inputB.type === 'string' &&
-                    inputB.type === 'custom_number' &&
-                    getNum(inputB) < 0)
-                )
-              },
-              change: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                const getNum = (b: any) =>
-                  typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : typeof b.values === 'object' &&
-                        b.values &&
-                        typeof b.values.NUM === 'number'
-                      ? Number(b.values.NUM)
-                      : NaN
-                const aNeg = getNum(inputA) < 0
-                const negativeInput = aNeg ? inputA : inputB
-                const otherInput = aNeg ? inputB : inputA
-                return [
-                  {
-                    blockName: 'subtract',
-                    inputs: [
-                      otherInput,
-                      {
-                        blockName: 'number',
-                        values: { NUM: -getNum(negativeInput) },
-                      },
-                    ],
-                  },
-                ]
-              },
-            },
-          ],
+    action: (a: number, b: number) => a * b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return !!(inputA && inputB && inputA.id && inputA.id === inputB.id)
         },
         multiply: {
           message0: '%1 * %2',
@@ -985,41 +939,84 @@ export default {
               name: 'A',
               check: 'Number',
             },
-            {
-              type: 'input_value',
-              name: 'B',
-              check: 'Number',
-            },
-          ],
-          output: 'Number',
-          inputsInline: true,
-          tooltip: 'Returns the remainder of a division',
-          helpUrl: '',
-          jsGenerator: function (block: Block, generator: Generator) {
-            const a =
-              generator.valueToCode(block, 'A', generator.ORDER_MODULUS) || '0'
-            const b =
-              generator.valueToCode(block, 'B', generator.ORDER_MODULUS) || '1'
-            const code = `${a} % ${b}`
-            return [code, generator.ORDER_MODULUS]
-          },
-          mutations: [
-            {
-              condition: function (block: Block) {
-                const inputB = getInput(block, 'B')
-                const getNum = (b: any) =>
-                  typeof b.getFieldValue === 'function'
-                    ? Number(b.getFieldValue('NUM'))
-                    : typeof b.values === 'object' &&
-                        b.values &&
-                        typeof b.values.NUM === 'number'
-                      ? Number(b.values.NUM)
-                      : NaN
-                return (
-                  inputB &&
-                  inputB.type === 'custom_number' &&
-                  getNum(inputB) === 1
-                )
+          ]
+        },
+      },
+    ],
+  },
+  subtract: {
+    category: 'Math',
+    message0: '%1 - %2',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'A',
+        check: 'Number',
+      },
+      {
+        type: 'input_value',
+        name: 'B',
+        check: 'Number',
+      },
+    ],
+    output: 'Number',
+    inputsInline: true,
+    tooltip: 'Subtracts two numbers',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const a =
+        generator.valueToCode(block, 'A', generator.ORDER_SUBTRACTION) || '0'
+      const b =
+        generator.valueToCode(block, 'B', generator.ORDER_SUBTRACTION) || '0'
+      const code = `${a} - ${b}`
+      return [code, generator.ORDER_SUBTRACTION]
+    },
+    action: (a: number, b: number) => a - b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return inputA && inputB && inputA.id === inputB.id
+        },
+        change: function () {
+          return [{ blockName: 'number', values: { NUM: 0 } }]
+        },
+      },
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          const getNum = (b: any) =>
+            typeof b.getFieldValue === 'function'
+              ? Number(b.getFieldValue('NUM'))
+              : typeof b.values === 'object' &&
+                  b.values &&
+                  typeof b.values.NUM === 'number'
+                ? Number(b.values.NUM)
+                : NaN
+          if (inputA && inputA.type === 'custom_number' && getNum(inputA) === 0)
+            return true
+          if (inputB && inputB.type === 'custom_number' && getNum(inputB) === 0)
+            return true
+          return false
+        },
+        change: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          const getNum = (b: any) =>
+            typeof b.getFieldValue === 'function'
+              ? Number(b.getFieldValue('NUM'))
+              : typeof b.values === 'object' &&
+                  b.values &&
+                  typeof b.values.NUM === 'number'
+                ? Number(b.values.NUM)
+                : NaN
+          if (inputA && getNum(inputA) === 0)
+            return [
+              {
+                blockName: 'negate',
+                inputs: [inputB],
               },
               change: function () {
                 return [{ blockName: 'number', values: { NUM: 0 } }]
@@ -1213,15 +1210,43 @@ export default {
             },
           ],
         },
-        pi: {
-          message0: 'π',
-          output: 'Number',
-          tooltip: 'The mathematical constant pi',
-          helpUrl: '',
-          jsGenerator: function () {
-            return ['Math.PI', 0]
-          },
-          mutations: [],
+      },
+    ],
+  },
+  divide: {
+    category: 'Math',
+    message0: '%1 / %2',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'A',
+        check: 'Number',
+      },
+      {
+        type: 'input_value',
+        name: 'B',
+        check: 'Number',
+      },
+    ],
+    output: 'Number',
+    inputsInline: true,
+    tooltip: 'Divides two numbers',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const a =
+        generator.valueToCode(block, 'A', generator.ORDER_DIVISION) || '0'
+      const b =
+        generator.valueToCode(block, 'B', generator.ORDER_DIVISION) || '1'
+      const code = `${a} / ${b}`
+      return [code, generator.ORDER_DIVISION]
+    },
+    action: (a: number, b: number) => a / b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return !!(inputA && inputB && inputA.id && inputA.id === inputB.id)
         },
         e: {
           message0: 'e',
@@ -1235,76 +1260,17 @@ export default {
         },
       },
     },
-    {
-      name: 'Logic',
-      colour: 315, // Pink
-      blocks: {
-        compare: {
-          message0: '%1 %2 %3',
-          args0: [
-            {
-              type: 'input_value',
-              name: 'A',
-              check: 'Number',
-            },
-            {
-              type: 'field_dropdown',
-              name: 'OP',
-              options: [
-                ['=', '=='],
-                ['≠', '!='],
-                ['>', '>'],
-                ['≥', '>='],
-                ['<', '<'],
-                ['≤', '<='],
-              ],
-            },
-            {
-              type: 'input_value',
-              name: 'B',
-              check: 'Number',
-            },
-          ],
-          output: 'Boolean',
-          inputsInline: true,
-          tooltip: 'Compares two numbers',
-          helpUrl: '',
-          jsGenerator: function (block: Block, generator: Generator) {
-            const a =
-              generator.valueToCode(block, 'A', generator.ORDER_RELATIONAL) ||
-              '0'
-            const op = block.getFieldValue
-              ? block.getFieldValue('OP')
-              : undefined
-            const b =
-              generator.valueToCode(block, 'B', generator.ORDER_RELATIONAL) ||
-              '0'
-            const code = `${a} ${op} ${b}`
-            return [code, generator.ORDER_RELATIONAL]
-          },
-          mutations: [
-            {
-              condition: function (block: Block) {
-                const inputA = getInput(block, 'A')
-                const inputB = getInput(block, 'B')
-                return !!(inputA && inputB && inputA.id && inputA.id === inputB.id)
-              },
-              change: function (block: Block) {
-                const op = getFieldValue(block, 'OP')
-                return [
-                  {
-                    blockName: 'boolean',
-                    values: {
-                      BOOL:
-                        op === '==' || op === '>=' || op === '<='
-                          ? 'TRUE'
-                          : 'FALSE',
-                    },
-                  },
-                ]
-              },
-            },
-          ],
+    action: (base: number, exponent: number) => Math.pow(base, exponent),
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const exponent = getInput(block, 'EXPONENT')
+          return (
+            exponent &&
+            exponent.type === 'custom_number' &&
+            exponent.values &&
+            exponent.values.NUM === 1
+          )
         },
         and: {
           message0: '%1 and %2',
@@ -1391,9 +1357,124 @@ export default {
             },
           ],
         },
-        or: {
-          message0: '%1 or %2',
-          args0: [
+      },
+    ],
+  },
+  modulo: {
+    category: 'Math',
+    message0: '%1 % %2',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'A',
+        check: 'Number',
+      },
+      {
+        type: 'input_value',
+        name: 'B',
+        check: 'Number',
+      },
+    ],
+    output: 'Number',
+    inputsInline: true,
+    tooltip: 'Returns the remainder of a division',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const a =
+        generator.valueToCode(block, 'A', generator.ORDER_MODULUS) || '0'
+      const b =
+        generator.valueToCode(block, 'B', generator.ORDER_MODULUS) || '1'
+      const code = `${a} % ${b}`
+      return [code, generator.ORDER_MODULUS]
+    },
+    action: (a: number, b: number) => a % b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputB = getInput(block, 'B')
+          const getNum = (b: any) =>
+            typeof b.getFieldValue === 'function'
+              ? Number(b.getFieldValue('NUM'))
+              : typeof b.values === 'object' &&
+                  b.values &&
+                  typeof b.values.NUM === 'number'
+                ? Number(b.values.NUM)
+                : NaN
+          return (
+            inputB && inputB.type === 'custom_number' && getNum(inputB) === 1
+          )
+        },
+        change: function () {
+          return [{ blockName: 'number', values: { NUM: 0 } }]
+        },
+      },
+      {
+        condition: function (block: any) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return !!(inputA && inputB && inputA.id && inputA.id === inputB.id)
+        },
+        change: function () {
+          return [{ blockName: 'number', values: { NUM: 0 } }]
+        },
+      },
+    ],
+  },
+  absolute: {
+    category: 'Math',
+    message0: 'abs %1',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'INPUT',
+        check: 'Number',
+      },
+    ],
+    output: 'Number',
+    tooltip: 'Returns the absolute value of a number',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const input =
+        generator.valueToCode(block, 'INPUT', generator.ORDER_FUNCTION_CALL) ||
+        '0'
+      const code = `Math.abs(${input})`
+      return [code, generator.ORDER_FUNCTION_CALL]
+    },
+    action: (input: number) => Math.abs(input),
+    mutations: [
+      {
+        // Handles both Blockly and program blocks
+        condition: function (
+          block: Block,
+          _state: any,
+          _this: Block | undefined,
+        ) {
+          let input
+          if (_this && typeof _this.getInputTargetBlock === 'function') {
+            input = _this.getInputTargetBlock('INPUT')
+          } else if (typeof block.getInputTargetBlock === 'function') {
+            input = block.getInputTargetBlock('INPUT')
+          } else {
+            input = getInput(block, 'INPUT')
+          }
+          return input && input.type === 'custom_absolute'
+        },
+        change: function (block: Block, _state: any, _this: Block | undefined) {
+          let input
+          if (_this && typeof _this.getInputTargetBlock === 'function') {
+            input = _this.getInputTargetBlock('INPUT')
+          } else if (typeof block.getInputTargetBlock === 'function') {
+            input = block.getInputTargetBlock('INPUT')
+          } else {
+            input = getInput(block, 'INPUT')
+          }
+          let inner
+          if (input && typeof input.getInputTargetBlock === 'function') {
+            inner = input.getInputTargetBlock('INPUT')
+          } else if (input) {
+            inner = getInput(input, 'INPUT')
+          }
+          return [
             {
               type: 'input_value',
               name: 'A',
@@ -1516,13 +1597,137 @@ export default {
         },
       },
     },
-    {
-      name: 'Control',
-      colour: 31, // Brown
-      blocks: {
-        if: {
-          message0: 'if %1 then %2',
-          args0: [
+    action: (input: number) => -input,
+    mutations: [
+      {
+        // Handles both Blockly and program blocks
+        condition: function (
+          block: Block,
+          _state: any,
+          _this: Block | undefined,
+        ) {
+          let input
+          if (_this && typeof _this.getInputTargetBlock === 'function') {
+            input = _this.getInputTargetBlock('INPUT')
+          } else if (typeof block.getInputTargetBlock === 'function') {
+            input = block.getInputTargetBlock('INPUT')
+          } else {
+            input = getInput(block, 'INPUT')
+          }
+          return input && input.type === 'custom_negate'
+        },
+        change: function (block: Block, _state: any, _this: Block | undefined) {
+          let input
+          if (_this && typeof _this.getInputTargetBlock === 'function') {
+            input = _this.getInputTargetBlock('INPUT')
+          } else if (typeof block.getInputTargetBlock === 'function') {
+            input = block.getInputTargetBlock('INPUT')
+          } else {
+            input = getInput(block, 'INPUT')
+          }
+          let inner
+          if (input && typeof input.getInputTargetBlock === 'function') {
+            inner = input.getInputTargetBlock('INPUT')
+          } else if (input) {
+            inner = getInput(input, 'INPUT')
+          }
+          return [inner]
+        },
+      },
+    ],
+  },
+  pi: {
+    category: 'Math',
+    message0: 'π',
+    output: 'Number',
+    tooltip: 'The mathematical constant pi',
+    helpUrl: '',
+    jsGenerator: function () {
+      return ['Math.PI', 0]
+    },
+    action: () => Math.PI,
+    mutations: [],
+  },
+  e: {
+    category: 'Math',
+    message0: 'e',
+    output: 'Number',
+    tooltip: 'The mathematical constant e',
+    helpUrl: '',
+    jsGenerator: function () {
+      return ['Math.E', 0]
+    },
+    action: () => Math.E,
+    mutations: [],
+  },
+  compare: {
+    category: 'Logic',
+    message0: '%1 %2 %3',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'A',
+        check: 'Number',
+      },
+      {
+        type: 'field_dropdown',
+        name: 'OP',
+        options: [
+          ['=', '=='],
+          ['≠', '!='],
+          ['>', '>'],
+          ['≥', '>='],
+          ['<', '<'],
+          ['≤', '<='],
+        ],
+      },
+      {
+        type: 'input_value',
+        name: 'B',
+        check: 'Number',
+      },
+    ],
+    output: 'boolean',
+    inputsInline: true,
+    tooltip: 'Compares two numbers',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const a =
+        generator.valueToCode(block, 'A', generator.ORDER_RELATIONAL) || '0'
+      const op = block.getFieldValue ? block.getFieldValue('OP') : undefined
+      const b =
+        generator.valueToCode(block, 'B', generator.ORDER_RELATIONAL) || '0'
+      const code = `${a} ${op} ${b}`
+      return [code, generator.ORDER_RELATIONAL]
+    },
+    action: (a: number, b: number, op: string) => {
+      switch (op) {
+        case '==':
+          return a === b
+        case '≠':
+          return a !== b
+        case '>':
+          return a > b
+        case '≥':
+          return a >= b
+        case '<':
+          return a < b
+        case '≤':
+          return a <= b
+        default:
+          return false
+      }
+    },
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return !!(inputA && inputB && inputA.id && inputA.id === inputB.id)
+        },
+        change: function (block: Block) {
+          const op = getFieldValue(block, 'OP')
+          return [
             {
               type: 'input_value',
               name: 'CONDITION',
@@ -1586,64 +1791,55 @@ export default {
             },
           ],
         },
-        if_else: {
-          message0: 'if %1 then %2 else %3',
-          args0: [
-            {
-              type: 'input_value',
-              name: 'CONDITION',
-              check: 'Boolean',
-            },
-            {
-              type: 'input_statement',
-              name: 'THEN',
-            },
-            {
-              type: 'input_statement',
-              name: 'ELSE',
-            },
-          ],
-          previousStatement: null,
-          nextStatement: null,
-          tooltip:
-            'Execute different actions depending on if a condition is true or false',
-          helpUrl: '',
-          jsGenerator: function (block: Block, generator: Generator) {
-            const condition =
-              generator.valueToCode(
-                block,
-                'CONDITION',
-                generator.ORDER_RELATIONAL,
-              ) || 'false'
-            const thenStatements = generator.statementToCode(block, 'THEN')
-            const elseStatements = generator.statementToCode(block, 'ELSE')
-            return `if (${condition}) {\n${thenStatements}} else {\n${elseStatements}}\n`
-          },
-          mutations: [],
+      },
+    ],
+  },
+  and: {
+    category: 'Logic',
+    message0: '%1 and %2',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'A',
+        check: 'Boolean',
+      },
+      {
+        type: 'input_value',
+        name: 'B',
+        check: 'Boolean',
+      },
+    ],
+    output: 'boolean',
+    inputsInline: true,
+    tooltip: 'Returns true if both inputs are true',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const a =
+        generator.valueToCode(block, 'A', generator.ORDER_LOGICAL_AND) ||
+        'false'
+      const b =
+        generator.valueToCode(block, 'B', generator.ORDER_LOGICAL_AND) ||
+        'false'
+      const code = `${a} && ${b}`
+      return [code, generator.ORDER_LOGICAL_AND]
+    },
+    action: (a: boolean, b: boolean) => a && b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return inputA && inputB && (inputA as any).id === (inputB as any).id
         },
       },
     },
-    {
-      name: 'Values',
-      colour: 60, // Yellow
-      blocks: {
-        number: {
-          message0: 'number %1',
-          args0: [
-            {
-              type: 'field_number',
-              name: 'NUM',
-              value: 0,
-            },
-          ],
-          output: 'Number',
-          tooltip: 'A number value',
-          helpUrl: '',
-          jsGenerator: function (block: Block) {
-            const num = block.getFieldValue('NUM')
-            return [num, 0]
-          },
-          mutations: [],
+    action: (a: boolean, b: boolean) => a || b,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const inputA = getInput(block, 'A')
+          const inputB = getInput(block, 'B')
+          return !!(inputA && inputB && inputA.id && inputA.id === inputB.id)
         },
         boolean: {
           message0: '%1',
@@ -1669,6 +1865,165 @@ export default {
         },
       },
     },
-    // Functions category will be dynamically handled in Home.tsx
-  ],
+    action: (input: boolean) => !input,
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const input = getInput(block, 'INPUT')
+          return input && (input as any).type === 'custom_not'
+        },
+        change: function (block: Block) {
+          const input = getInput(block, 'INPUT')
+          if (input && typeof input === 'object') {
+            const inner = getInput(input, 'INPUT')
+            return inner ? [inner] : []
+          }
+          return []
+        },
+      },
+    ],
+  },
+  if: {
+    category: 'Control',
+    message0: 'if %1 then %2',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'CONDITION',
+        check: 'Boolean',
+      },
+      {
+        type: 'input_statement',
+        name: 'THEN',
+      },
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    tooltip: 'Executes actions if a condition is true',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const condition =
+        generator.valueToCode(block, 'CONDITION', generator.ORDER_RELATIONAL) ||
+        'false'
+      const statements = generator.statementToCode(block, 'THEN')
+      return `if (${condition}) {\n${statements}}\n`
+    },
+    action: (condition: boolean, then: Block[]) => (condition ? then : []),
+    mutations: [
+      {
+        condition: function (block: Block) {
+          const conditionBlock = getInput(block, 'CONDITION')
+          return (
+            conditionBlock &&
+            conditionBlock.type === 'custom_boolean' &&
+            getFieldValue(conditionBlock, 'BOOL') === 'TRUE'
+          )
+        },
+        change: function (block: Block) {
+          if (Array.isArray(block.actions)) {
+            return block.actions
+          }
+          const thenBlock =
+            typeof block.getInputTargetBlock === 'function'
+              ? block.getInputTargetBlock('THEN')
+              : undefined
+          if (thenBlock && typeof thenBlock.getBlocks === 'function') {
+            return thenBlock.getBlocks()
+          }
+          return []
+        },
+      },
+      {
+        condition: function (block: Block) {
+          const conditionBlock = getInput(block, 'CONDITION')
+          return (
+            conditionBlock &&
+            conditionBlock.type === 'custom_boolean' &&
+            getFieldValue(conditionBlock, 'BOOL') === 'FALSE'
+          )
+        },
+        change: function () {
+          return []
+        },
+      },
+    ],
+  },
+  if_else: {
+    category: 'Control',
+    message0: 'if %1 then %2 else %3',
+    args0: [
+      {
+        type: 'input_value',
+        name: 'CONDITION',
+        check: 'Boolean',
+      },
+      {
+        type: 'input_statement',
+        name: 'THEN',
+      },
+      {
+        type: 'input_statement',
+        name: 'ELSE',
+      },
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    tooltip:
+      'Execute different actions depending on if a condition is true or false',
+    helpUrl: '',
+    jsGenerator: function (block: Block, generator: Generator) {
+      const condition =
+        generator.valueToCode(block, 'CONDITION', generator.ORDER_RELATIONAL) ||
+        'false'
+      const thenStatements = generator.statementToCode(block, 'THEN')
+      const elseStatements = generator.statementToCode(block, 'ELSE')
+      return `if (${condition}) {\n${thenStatements}} else {\n${elseStatements}}\n`
+    },
+    action: (condition: boolean, then: Block[], otherwise: Block[]) =>
+      condition ? then : otherwise,
+    mutations: [],
+  },
+  number: {
+    category: 'Values',
+    message0: 'number %1',
+    args0: [
+      {
+        type: 'field_number',
+        name: 'NUM',
+        value: 0,
+      },
+    ],
+    output: 'Number',
+    tooltip: 'A number value',
+    helpUrl: '',
+    jsGenerator: function (block: Block) {
+      const num = block.getFieldValue('NUM')
+      return [num, 0]
+    },
+    action: (num: number) => num,
+    mutations: [],
+  },
+  boolean: {
+    category: 'Values',
+    message0: '%1',
+    args0: [
+      {
+        type: 'field_dropdown',
+        name: 'BOOL',
+        options: [
+          ['true', 'TRUE'],
+          ['false', 'FALSE'],
+        ],
+      },
+    ],
+    output: 'boolean',
+    tooltip: 'A boolean value',
+    helpUrl: '',
+    jsGenerator: function (block: Block) {
+      const bool = block.getFieldValue('BOOL') === 'TRUE' ? 'true' : 'false'
+      return [bool, 0]
+    },
+    action: (bool: string) => bool === 'TRUE',
+    mutations: [],
+  },
 }
