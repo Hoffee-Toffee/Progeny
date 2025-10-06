@@ -1,31 +1,27 @@
-// Browser-safe logger for Progeny GUI (TypeScript)
-
-export async function log(message: string, consoleLog = false) {
-  const timestamp = new Date().toISOString()
+export const log = (message: string, consoleLog = true) => {
   if (consoleLog) {
-    console.log(`[${timestamp}] ${message}`)
+    console.log(message)
   }
 }
 
-export async function warn(message: string, consoleLog = false) {
-  const timestamp = new Date().toISOString()
+export const warn = (message: string, consoleLog = true) => {
   if (consoleLog) {
-    console.warn(`[${timestamp}] WARN: ${message}`)
+    console.warn(message)
   }
 }
 
-export async function error(message: string, consoleLog = false) {
-  const timestamp = new Date().toISOString()
+export const error = (message: string, consoleLog = true) => {
   if (consoleLog) {
-    console.error(`[${timestamp}] ERROR: ${message}`)
+    console.error(message)
   }
 }
 
-export async function logBestProgram(
-  programJsonString: string,
-  consoleLog = false,
-) {
+export const close = () => {
+  // Placeholder for closing log files or streams
+}
+
+export const logBestProgram = (program: string, consoleLog = true) => {
   if (consoleLog) {
-    console.log(`[BEST PROGRAM] ${programJsonString}`)
+    console.log('Best program:', program)
   }
 }

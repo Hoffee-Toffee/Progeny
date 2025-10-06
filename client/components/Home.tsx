@@ -1,5 +1,4 @@
-// @ts-ignore
-import { Progeny } from '../functions/genetic-algorithm';
+import { Progeny } from '../functions/genetic-algorithm.ts'
 import { useContext, useEffect, useRef, useState } from 'react';
 import { LoadingContext } from './App.tsx';
 import '../styles/home.scss';
@@ -97,25 +96,30 @@ export default function Home() {
   }, [selectedTestKey, selectedMember]);
   // Handler for starting a run (stub for now)
   const handleStartRun = async () => {
-    setRunResult('Running...');
+    setRunResult('Running...')
     // Run the genetic algorithm with the selected config and test
     const progeny = new Progeny(
       config.populationSize,
       config.maxGenerations,
       true, // consoleLog
       config.evaluationCasesCount,
-      config.numEvaluationBatches
-    );
-    const testCase = selectedTest;
+      config.numEvaluationBatches,
+    )
+    const testCase = selectedTest
     // Use the first test for now (can expand to allow user selection)
-    const best = await progeny.run(testCase);
-    const resultText =
-      'Best Program Found!\nFitness: ' +
-      (best ? (await progeny.evaluate(best, testCase)).toFixed(4) : 'N/A') +
-      '\nBlocks: ' +
-      JSON.stringify(best, null, 2);
-    setRunResult(resultText);
-  };
+    const best = await progeny.run(testCase)
+    if (best) {
+      const fitness = await progeny.evaluate(best, testCase)
+      const resultText =
+        'Best Program Found!\nFitness: ' +
+        fitness.toFixed(4) +
+        '\nBlocks: ' +
+        JSON.stringify(best.blocks, null, 2)
+      setRunResult(resultText)
+    } else {
+      setRunResult('No best program found.')
+    }
+  }
   // Copy/download handlers
   const handleCopy = () => {
     if (generatedCode) navigator.clipboard.writeText(generatedCode);

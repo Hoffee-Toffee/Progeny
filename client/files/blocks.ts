@@ -193,7 +193,7 @@ export default {
       },
     ],
     variableTypes: ['Number'],
-    output: 'Number',
+    output: 'number',
     tooltip: 'Gets the value of a variable',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -280,8 +280,9 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
     inputsInline: true,
+    inputs: ['number', 'number'],
     tooltip: 'Adds two numbers',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -292,6 +293,7 @@ export default {
       const code = `${a} + ${b}`
       return [code, generator.ORDER_ADDITION]
     },
+    action: (n1: number, n2: number) => n1 + n2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -504,8 +506,9 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
     inputsInline: true,
+    inputs: ['number', 'number'],
     tooltip: 'Multiplies two numbers',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -516,6 +519,7 @@ export default {
       const code = `${a} * ${b}`
       return [code, generator.ORDER_MULTIPLICATION]
     },
+    action: (n1: number, n2: number) => n1 * n2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -688,8 +692,9 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
     inputsInline: true,
+    inputs: ['number', 'number'],
     tooltip: 'Subtracts two numbers',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -700,6 +705,7 @@ export default {
       const code = `${a} - ${b}`
       return [code, generator.ORDER_SUBTRACTION]
     },
+    action: (n1: number, n2: number) => n1 - n2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -830,8 +836,9 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
     inputsInline: true,
+    inputs: ['number', 'number'],
     tooltip: 'Divides two numbers',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -842,6 +849,7 @@ export default {
       const code = `${a} / ${b}`
       return [code, generator.ORDER_DIVISION]
     },
+    action: (n1: number, n2: number) => n1 / n2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -898,8 +906,9 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
     inputsInline: true,
+    inputs: ['number', 'number'],
     tooltip: 'Raises a number to a power',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -915,6 +924,7 @@ export default {
       const code = `Math.pow(${base}, ${exponent})`
       return [code, generator.ORDER_EXPONENTIATION]
     },
+    action: (n1: number, n2: number) => n1 ** n2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -966,8 +976,9 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
     inputsInline: true,
+    inputs: ['number', 'number'],
     tooltip: 'Returns the remainder of a division',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -978,6 +989,7 @@ export default {
       const code = `${a} % ${b}`
       return [code, generator.ORDER_MODULUS]
     },
+    action: (n1: number, n2: number) => n1 % n2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -1020,7 +1032,8 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
+    inputs: ['number'],
     tooltip: 'Returns the absolute value of a number',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -1030,6 +1043,7 @@ export default {
       const code = `Math.abs(${input})`
       return [code, generator.ORDER_FUNCTION_CALL]
     },
+    action: (n: number) => Math.abs(n),
     mutations: [
       {
         // Handles both Blockly and program blocks
@@ -1122,7 +1136,8 @@ export default {
         check: 'Number',
       },
     ],
-    output: 'Number',
+    output: 'number',
+    inputs: ['number'],
     tooltip: 'Negates a number',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -1132,6 +1147,7 @@ export default {
       const code = `-${input}`
       return [code, generator.ORDER_UNARY_NEGATION]
     },
+    action: (n: number) => -n,
     mutations: [
       {
         // Handles both Blockly and program blocks
@@ -1173,23 +1189,25 @@ export default {
   pi: {
     category: 'Math',
     message0: 'π',
-    output: 'Number',
+    output: 'number',
     tooltip: 'The mathematical constant pi',
     helpUrl: '',
     jsGenerator: function () {
       return ['Math.PI', 0]
     },
+    action: Math.PI,
     mutations: [],
   },
   e: {
     category: 'Math',
     message0: 'e',
-    output: 'Number',
+    output: 'number',
     tooltip: 'The mathematical constant e',
     helpUrl: '',
     jsGenerator: function () {
       return ['Math.E', 0]
     },
+    action: Math.E,
     mutations: [],
   },
   //   },
@@ -1227,6 +1245,11 @@ export default {
     ],
     output: 'boolean',
     inputsInline: true,
+    inputs: [
+      'number',
+      'number',
+      "'=='|'!='|'>'|'>='|'<'|'<='",
+    ],
     tooltip: 'Compares two numbers',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -1237,6 +1260,22 @@ export default {
         generator.valueToCode(block, 'B', generator.ORDER_RELATIONAL) || '0'
       const code = `${a} ${op} ${b}`
       return [code, generator.ORDER_RELATIONAL]
+    },
+    action: (n1: number, n2: number, op: string) => {
+      switch (op) {
+        case '==':
+          return n1 == n2
+        case '!=':
+          return n1 != n2
+        case '>':
+          return n1 > n2
+        case '>=':
+          return n1 >= n2
+        case '<':
+          return n1 < n2
+        case '<=':
+          return n1 <= n2
+      }
     },
     mutations: [
       {
@@ -1277,6 +1316,7 @@ export default {
     ],
     output: 'boolean',
     inputsInline: true,
+    inputs: ['boolean', 'boolean'],
     tooltip: 'Returns true if both inputs are true',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -1289,6 +1329,7 @@ export default {
       const code = `${a} && ${b}`
       return [code, generator.ORDER_LOGICAL_AND]
     },
+    action: (b1: boolean, b2: boolean) => b1 && b2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -1361,6 +1402,7 @@ export default {
     ],
     output: 'boolean',
     inputsInline: true,
+    inputs: ['boolean', 'boolean'],
     tooltip: 'Returns true if either input is true',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -1371,6 +1413,7 @@ export default {
       const code = `${a} || ${b}`
       return [code, generator.ORDER_LOGICAL_OR]
     },
+    action: (b1: boolean, b2: boolean) => b1 || b2,
     mutations: [
       {
         condition: function (block: Block) {
@@ -1436,6 +1479,7 @@ export default {
       },
     ],
     output: 'boolean',
+    inputs: ['boolean'],
     tooltip: 'Returns the opposite of the input',
     helpUrl: '',
     jsGenerator: function (block: Block, generator: Generator) {
@@ -1445,6 +1489,7 @@ export default {
       const code = `!${input}`
       return [code, generator.ORDER_LOGICAL_OR]
     },
+    action: (b: boolean) => !b,
     mutations: [
       {
         condition: function (block: Block) {
@@ -1581,7 +1626,7 @@ export default {
         value: 0,
       },
     ],
-    output: 'Number',
+    output: 'number',
     tooltip: 'A number value',
     helpUrl: '',
     jsGenerator: function (block: Block) {

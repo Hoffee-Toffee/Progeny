@@ -1,122 +1,29 @@
-// TypeScript version of tests.js with types for number, boolean, and future types
-
-export type TestInputType = 'number' | 'boolean'
-
-export interface TestInputDef {
+export interface TestProblem<T, U> {
   name: string
-  type: TestInputType
+  inputs: { name: string; type: 'number' | 'boolean' }[]
+  generateCases: (count: number) => { inputs: T; expected: U }[]
 }
 
-export interface TestCase<I extends Record<string, unknown>, O> {
-  inputs: I
-  expected: O
-}
-
-export interface TestProblem<I extends Record<string, unknown>, O> {
-  inputs: TestInputDef[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  target: (...args: any[]) => O
-  generateCases: (numEvaluationCases: number) => TestCase<I, O>[]
-}
-
-export interface Tests {
-  [key: string]: TestProblem<Record<string, unknown>, unknown>
-}
-
-export const tests: Tests = {
-  sumThreeNumbers: {
+export const tests: Record<string, TestProblem<any, any>> = {
+  'Sum three numbers': {
+    name: 'Sum three numbers',
     inputs: [
-      { name: 'x', type: 'number' },
-      { name: 'y', type: 'number' },
-      { name: 'z', type: 'number' },
+      { name: 'v0', type: 'number' },
+      { name: 'v1', type: 'number' },
+      { name: 'v2', type: 'number' },
     ],
-    target: (x: number, y: number, z: number) => x + y + z,
-    generateCases: (numEvaluationCases: number) =>
-      Array.from({ length: numEvaluationCases }, () => {
-        const inputs = {
-          x: Math.round(Math.random() * 20 - 10) / 1,
-          y: Math.round(Math.random() * 20 - 10) / 1,
-          z: Math.round(Math.random() * 20 - 10) / 1,
-        }
-        return { inputs, expected: inputs.x + inputs.y + inputs.z }
-      }),
-  },
-  squareNumber: {
-    inputs: [{ name: 'x', type: 'number' }],
-    target: (x: number) => x * x,
-    generateCases: (numEvaluationCases: number) =>
-      Array.from({ length: numEvaluationCases }, () => {
-        const inputs = {
-          x: Math.round(Math.random() * 20 - 10) / 1,
-        }
-        return { inputs, expected: inputs.x * inputs.x }
-      }),
-  },
-  multiplyBy4Subtract2: {
-    inputs: [{ name: 'x', type: 'number' }],
-    target: (x: number) => x * 4 - 2,
-    generateCases: (numEvaluationCases: number) =>
-      Array.from({ length: numEvaluationCases }, () => {
-        const inputs = {
-          x: Math.round(Math.random() * 20 - 10) / 1,
-        }
-        return { inputs, expected: inputs.x * 4 - 2 }
-      }),
-  },
-  quadraticEquation: {
-    inputs: [
-      { name: 'x', type: 'number' },
-      { name: 'y', type: 'number' },
-      { name: 'z', type: 'number' },
-    ],
-    target: (x: number, a: number, b: number) => a * x * x + b * x,
-    generateCases: (numEvaluationCases: number) =>
-      Array.from({ length: numEvaluationCases }, () => {
-        const inputs = {
-          x: Math.round(Math.random() * 20 - 10) / 1,
-          y: Math.round(Math.random() * 20 - 10) / 1,
-          z: Math.round(Math.random() * 20 - 10) / 1,
-        }
-        return {
-          inputs,
-          expected: inputs.y * inputs.x * inputs.x + inputs.z * inputs.x,
-        }
-      }),
-  },
-  conditionalOutput: {
-    inputs: [
-      { name: 'x', type: 'number' },
-      { name: 'y', type: 'number' },
-    ],
-    target: (x: number, y: number) =>
-      [x - y, x + y, x * y].includes(3) ? 3 : 0,
-    generateCases: (numEvaluationCases: number) =>
-      Array.from({ length: numEvaluationCases }, () => {
-        const inputs = {
-          x: Math.round(Math.random() * 20 - 10) / 1,
-          y: Math.round(Math.random() * 20 - 10) / 1,
-        }
-        return {
-          inputs,
-          expected: [
-            inputs.x - inputs.y,
-            inputs.x + inputs.y,
-            inputs.x * inputs.y,
-          ].includes(3)
-            ? 3
-            : 0,
-        }
-      }),
-  },
-  absoluteValue: {
-    inputs: [{ name: 'x', type: 'number' }],
-    target: (x: number) => Math.abs(x),
-    generateCases: (numEvaluationCases: number) =>
-      Array.from({ length: numEvaluationCases }, () => {
-        const inputs = {
-          x: Math.round(Math.random() * 20 - 10) / 1,
-        }
-        return { inputs, expected: Math.abs(inputs.x) }
-      }),
+    generateCases: (count: number) => {
+      const cases = []
+      for (let i = 0; i < count; i++) {
+        const v0 = Math.random() * 10
+        const v1 = Math.random() * 10
+        const v2 = Math.random() * 10
+        cases.push({
+          inputs: { v0, v1, v2 },
+          expected: v0 + v1 + v2,
+        })
+      }
+      return cases
+    },
   },
 }
