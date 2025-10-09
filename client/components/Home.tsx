@@ -104,6 +104,7 @@ export default function Home() {
       true, // consoleLog
       config.evaluationCasesCount,
       config.numEvaluationBatches,
+      config.mutationRate,
     )
     const testCase = selectedTest
     // Use the first test for now (can expand to allow user selection)

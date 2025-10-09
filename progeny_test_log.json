@@ -1,0 +1,65 @@
+{
+  "fitness": 0.007692307692307693,
+  "program": [
+    {
+      "blockName": "set",
+      "var": "out",
+      "value": "x"
+    },
+    {
+      "blockName": "number"
+    },
+    {
+      "blockName": "e"
+    },
+    {
+      "blockName": "multiply",
+      "inputs": [
+        "x",
+        "x"
+      ]
+    },
+    {
+      "blockName": "modulo",
+      "inputs": [
+        2,
+        {
+          "blockName": "multiply",
+          "inputs": [
+            "z",
+            "x"
+          ]
+        }
+      ]
+    },
+    {
+      "blockName": "modulo",
+      "inputs": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "blockName": "multiply",
+      "inputs": [
+        "x",
+        -1
+      ]
+    },
+    {
+      "blockName": "number"
+    },
+    {
+      "blockName": "absolute",
+      "inputs": [
+        "x"
+      ]
+    },
+    {
+      "blockName": "return",
+      "inputs": [
+        "out"
+      ]
+    }
+  ]
+}

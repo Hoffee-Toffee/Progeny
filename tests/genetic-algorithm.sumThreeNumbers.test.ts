@@ -7,7 +7,7 @@ import { tests } from '../client/files/tests.ts'
 async function runGAAndCheck({
   populationSize = 10,
   maxGenerations = 10,
-  testKey = 'Sum three numbers',
+  testKey = 'sumThreeNumbers',
   maxDepth = 2,
   trials = 1,
   evaluationCasesCount = 20,
@@ -50,7 +50,7 @@ describe('Genetic Algorithm - sumThreeNumbers', () => {
     const { fitness, program } = await runGAAndCheck({
       populationSize: 100,
       maxGenerations: 50,
-      testKey: 'Sum three numbers',
+      testKey: 'sumThreeNumbers',
       trials: 1,
       evaluationCasesCount: 20,
       numEvaluationBatches: 1,

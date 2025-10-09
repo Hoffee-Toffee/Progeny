@@ -1,5 +1,5 @@
 import blocksModule from '../files/blocks.ts'
-import { log, warn, error } from '../functions/logger.ts'
+// import { log, warn, error } from '../functions/logger.ts' // Remove unused
 import type { Block } from '../files/blocks.ts'
 
 // Valid variables and constants
@@ -176,47 +176,23 @@ function isValidValue(
   return false
 }
 
-function isValidBlock(
-  block: Block,
-  inputVariables: string[] = [],
-  consoleLog = false,
-): boolean {
+function isValidBlock(block: Block, inputVariables: string[] = []): boolean {
   if (!block || typeof block !== 'object' || !block.blockName) {
-    warn(
-      `Invalid block: missing blockName or not an object: ${JSON.stringify(
-        block,
-      )}`,
-      consoleLog,
-    )
     return false
   }
 
   if (block.blockName === 'set') {
     const varName = block.var
     if (!varName || !isValidProgramVariableName(varName, inputVariables)) {
-      warn(
-        `Invalid block: set block has invalid or missing 'var' property: '${varName}'. Must be a known variable or match pattern 'out'/'v<num>'/'b<num>'. Block: ${JSON.stringify(
-          block,
-        )}`,
-        consoleLog,
-      )
       return false
     }
-
     if (
       !isValidValue(
         block.value,
         varName.startsWith('b') ? 'boolean' : 'number',
         inputVariables,
-        consoleLog,
       )
     ) {
-      warn(
-        `Invalid block: set block has invalid 'value' for var '${varName}': ${JSON.stringify(
-          block,
-        )}`,
-        consoleLog,
-      )
       return false
     }
     return true
@@ -228,63 +204,29 @@ function isValidBlock(
       !Array.isArray(block.inputs) ||
       block.inputs.length !== 1
     ) {
-      warn(
-        `Invalid block: return block must have exactly one input in an array: ${JSON.stringify(
-          block,
-        )}`,
-        consoleLog,
-      )
       return false
     }
-    if (!isValidValue(block.inputs[0], 'number', inputVariables, consoleLog)) {
-      warn(
-        `Invalid block: return block's input is not a valid number: ${JSON.stringify(
-          block,
-        )}`,
-        consoleLog,
-      )
+    if (!isValidValue(block.inputs[0], 'number', inputVariables)) {
       return false
     }
     return true
   }
 
   if (block.blockName === 'if' || block.blockName === 'ifElse') {
-    if (!isValidValue(block.condition, 'boolean', inputVariables, consoleLog)) {
-      warn(
-        `Invalid block: ${
-          block.blockName
-        } has invalid condition: ${JSON.stringify(block)}`,
-        consoleLog,
-      )
+    if (!isValidValue(block.condition, 'boolean', inputVariables)) {
       return false
     }
     if (
       !Array.isArray(block.actions) ||
-      block.actions.some(
-        (a: Block) => !isValidBlock(a, inputVariables, consoleLog),
-      )
+      block.actions.some((a: Block) => !isValidBlock(a, inputVariables))
     ) {
-      warn(
-        `Invalid block: ${
-          block.blockName
-        } has invalid actions: ${JSON.stringify(block)}`,
-        consoleLog,
-      )
       return false
     }
     if (
       block.blockName === 'ifElse' &&
       (!Array.isArray(block.elseActions) ||
-        block.elseActions.some(
-          (a: Block) => !isValidBlock(a, inputVariables, consoleLog),
-        ))
+        block.elseActions.some((a: Block) => !isValidBlock(a, inputVariables)))
     ) {
-      warn(
-        `Invalid block: ifElse has invalid elseActions: ${JSON.stringify(
-          block,
-        )}`,
-        consoleLog,
-      )
       return false
     }
     return true
@@ -296,7 +238,6 @@ function isValidBlock(
       `Invalid block: unknown blockName '${
         block.blockName
       }' (and not a special block): ${JSON.stringify(block)}`,
-      consoleLog,
     )
     return false
   }
@@ -306,43 +247,14 @@ function isValidBlock(
       !Array.isArray(block.inputs) ||
       block.inputs.length !== blockDef.inputs.length
     ) {
-      warn(
-        `Invalid block: incorrect inputs array for ${
-          block.blockName
-        }, expected ${blockDef.inputs.length}, got ${
-          block.inputs?.length || 0
-        }: ${JSON.stringify(block)}`,
-        consoleLog,
-      )
       return false
     }
     for (let i = 0; i < blockDef.inputs.length; i++) {
-      if (
-        !isValidValue(
-          block.inputs[i],
-          blockDef.inputs[i],
-          inputVariables,
-          consoleLog,
-        )
-      ) {
-        warn(
-          `Invalid block: input ${i} ('${blockDef.inputs[i]}') for ${
-            block.blockName
-          } is invalid: ${JSON.stringify(block)}`,
-          consoleLog,
-        )
+      if (!isValidValue(block.inputs[i], blockDef.inputs[i], inputVariables)) {
         return false
       }
     }
   } else if (block.inputs && block.inputs.length > 0) {
-    warn(
-      `Invalid block: ${
-        block.blockName
-      } does not define inputs in blocksModule, but block instance has inputs: ${JSON.stringify(
-        block,
-      )}`,
-      consoleLog,
-    )
     return false
   }
 
@@ -360,10 +272,6 @@ async function generateInput(
 
   if (depth >= maxDepth) {
     if (type === 'number') {
-      await log(
-        `Depth ${depth}: Hit recursion limit for number type '${type}'`,
-        consoleLog,
-      )
       returnValue =
         inputVariables.length > 0
           ? inputVariables[Math.floor(Math.random() * inputVariables.length)]
@@ -376,20 +284,12 @@ async function generateInput(
     } else if (type === "'=='|'!='|'>'|'>='|'<'|'<='") {
       returnValue = operators[Math.floor(Math.random() * operators.length)]
     } else {
-      warn(
-        `generateInput: Unknown type '${type}' at max depth ${depth}. Defaulting to 0.`,
-        consoleLog,
-      )
       returnValue = 0
     }
   } else if (type === 'number') {
     if (Math.random() < 0.6 && inputVariables.length > 0) {
       const stringValue =
         inputVariables[Math.floor(Math.random() * inputVariables.length)]
-      await log(
-        `Depth ${depth}: Generated number (from input var) ${stringValue}`,
-        consoleLog,
-      )
       returnValue = stringValue
     } else if (Math.random() < 0.3) {
       const generatedBlock = await ProgenyProgram.generateRandomBlock(
@@ -403,25 +303,13 @@ async function generateInput(
       if (typeof generatedBlock === 'object' && generatedBlock !== null) {
         if (
           !generatedBlock.blockName ||
-          !isValidBlock(generatedBlock, inputVariables, true)
+          !isValidBlock(generatedBlock, inputVariables)
         ) {
-          warn(
-            `generateInput (for number): generateRandomBlock returned invalid block: ${JSON.stringify(
-              generatedBlock,
-            )}. Defaulting to constant.`,
-            consoleLog,
-          )
           returnValue = constants[Math.floor(Math.random() * constants.length)]
         } else {
           returnValue = generatedBlock
         }
       } else {
-        warn(
-          `generateInput (for number): generateRandomBlock returned non-object: ${JSON.stringify(
-            generatedBlock,
-          )}. Defaulting to constant.`,
-          consoleLog,
-        )
         returnValue = constants[Math.floor(Math.random() * constants.length)]
       }
     } else {
@@ -440,7 +328,7 @@ async function generateInput(
       if (typeof boolBlock === 'object' && boolBlock !== null) {
         if (
           !boolBlock.blockName ||
-          !isValidBlock(boolBlock, inputVariables, true) ||
+          !isValidBlock(boolBlock, inputVariables) ||
           (blocksModule as any)[boolBlock.blockName]?.output !== 'boolean'
         ) {
           returnValue =
@@ -463,31 +351,14 @@ async function generateInput(
   } else if (type === "'=='|'!='|'>'|'>='|'<'|'<='") {
     returnValue = operators[Math.floor(Math.random() * operators.length)]
   } else {
-    warn(
-      `generateInput: Unknown type '${type}' (not max depth). Defaulting to null, then will be further checked.`,
-      consoleLog,
-    )
     returnValue = null
   }
 
   if (returnValue === null) {
-    warn(
-      `generateInput for type '${type}' resulted in null. Defaulting to 0 or false.`,
-      consoleLog,
-    )
     return type === 'boolean' ? false : 0
   }
   if (typeof returnValue === 'object') {
-    if (
-      !returnValue.blockName ||
-      !isValidBlock(returnValue, inputVariables, true)
-    ) {
-      warn(
-        `generateInput for type '${type}': Returning object is invalid: ${JSON.stringify(
-          returnValue,
-        )}. Defaulting based on type.`,
-        consoleLog,
-      )
+    if (!returnValue.blockName || !isValidBlock(returnValue, inputVariables)) {
       if (type === 'number')
         return constants[Math.floor(Math.random() * constants.length)]
       if (type === 'boolean')
@@ -507,24 +378,6 @@ async function generateInitialValue(
   maxDepth: number,
   consoleLog: boolean,
 ): Promise<any> {
-  if (Math.random() < 0.7 && inputVariables.length >= 3) {
-    const v0 = inputVariables[0]
-    const v1 = inputVariables[1]
-    const v2 = inputVariables[2]
-    const innerAdd: Block = {
-      blockName: 'add',
-      inputs: [v0, v1],
-    }
-    const outerAdd: Block = {
-      blockName: 'add',
-      inputs: [innerAdd, v2],
-    }
-    await log(
-      `Depth ${depth}: Generated nested add block ${JSON.stringify(outerAdd)}`,
-      consoleLog,
-    )
-    return outerAdd
-  }
   return await generateInput(
     'number',
     depth,
@@ -535,114 +388,58 @@ async function generateInitialValue(
 }
 
 export class ProgenyProgram {
+  // Mutate this program by randomly changing, adding, or removing blocks
+  async mutate(): Promise<void> {
+    // Choose a mutation type: modify, add, or remove
+    const mutationType = Math.random();
+    if (mutationType < 0.4 && this.blocks.length > 1) {
+      // Remove a random block (not the return block)
+      const idx = Math.floor(Math.random() * (this.blocks.length - 1));
+      this.blocks.splice(idx, 1);
+    } else if (mutationType < 0.7) {
+      // Modify a random block
+      const idx = Math.floor(Math.random() * (this.blocks.length - 1));
+      const block = this.blocks[idx];
+      if (block && block.blockName && (blocksModule as any)[block.blockName]?.mutate) {
+        this.blocks[idx] = await (blocksModule as any)[block.blockName].mutate(block, this.inputVariables);
+      }
+    } else {
+      // Add a new random block before return
+      const newBlock = await ProgenyProgram.generateRandomBlock(0, 3, false, null, this.inputVariables);
+      this.blocks.splice(this.blocks.length - 1, 0, newBlock);
+    }
+    // Ensure at least one return block exists
+    if (!this.blocks.some((b) => b.blockName === 'return')) {
+      this.blocks.push({ blockName: 'return', inputs: ['out'] });
+    }
+  }
   blocks: Block[]
   inputVariables: string[]
-  consoleLog: boolean
 
-  constructor(
-    initialBlocks: Block[],
-    inputVariables: string[] = [],
-    consoleLog = false,
-  ) {
+  constructor(blocks: Block[], inputVariables: string[] = []) {
+    this.blocks = blocks
     this.inputVariables = inputVariables
-    this.consoleLog = consoleLog
-
-    let processedBlocks: Block[] = []
-    if (initialBlocks && initialBlocks.length > 0) {
-      processedBlocks = initialBlocks.filter((block) => {
-        const isValid = isValidBlock(
-          block,
-          this.inputVariables,
-          this.consoleLog,
-        )
-        if (!isValid) {
-          warn(
-            `Invalid block provided to constructor, filtering out: ${JSON.stringify(
-              block,
-            )}`,
-            this.consoleLog,
-          )
-        }
-        return isValid
-      })
-    }
-
-    if (processedBlocks.length === 0) {
-      warn(
-        `Constructor received no valid blocks, creating ultra-simple sync default.`,
-        this.consoleLog,
-      )
-      processedBlocks = [
-        {
-          blockName: 'set',
-          var: 'out',
-          value:
-            this.inputVariables.length > 0
-              ? this.inputVariables[0]
-              : constants[0],
-        },
-        { blockName: 'return', inputs: ['out'] },
-      ]
-    }
-
-    this.blocks = processedBlocks
-
-    if (!this.blocks.some((b) => b.blockName === 'return')) {
-      this.blocks.push({ blockName: 'return', inputs: ['out'] })
-      warn(`Appended default return block in constructor.`, this.consoleLog)
-    }
-
-    if (
-      !this.blocks.every((block) =>
-        isValidBlock(block, this.inputVariables, this.consoleLog),
-      )
-    ) {
-      warn(
-        `CRITICAL: Blocks in constructor are still invalid after processing and defaults: ${JSON.stringify(
-          this.blocks,
-        )}. This should not happen.`,
-        this.consoleLog,
-      )
-      this.blocks = [
-        {
-          blockName: 'set',
-          var: 'out',
-          value: constants[0],
-        },
-        { blockName: 'return', inputs: ['out'] },
-      ]
-    }
   }
 
   static async create(
     initialBlocks: Block[] = [],
     inputVariables: string[] = [],
-    consoleLog = false,
   ): Promise<ProgenyProgram> {
-    let blocksToConstruct
-
-    if (initialBlocks && initialBlocks.length > 0) {
-      blocksToConstruct = initialBlocks
-    } else {
-      const defaultValue = await generateInitialValue(
-        inputVariables,
-        0,
-        2,
-        consoleLog,
-      )
-      blocksToConstruct = [
-        {
-          blockName: 'set',
-          var: 'out',
-          value: defaultValue,
-        },
-        {
-          blockName: 'return',
-          inputs: ['out'],
-        },
-      ]
-    }
-    return new ProgenyProgram(blocksToConstruct, inputVariables, consoleLog)
+    const blocksToConstruct: Block[] =
+      initialBlocks && initialBlocks.length > 0
+        ? initialBlocks
+        : [
+            {
+              blockName: 'set',
+              var: 'out',
+              value: inputVariables.length > 0 ? inputVariables[0] : 0,
+            },
+            {
+              blockName: 'return',
+              inputs: ['out'],
+            },
+          ]
+    return new ProgenyProgram(blocksToConstruct, inputVariables)
   }
 
   async resolveInput(
@@ -652,24 +449,17 @@ export class ProgenyProgram {
     expectedType: string,
   ): Promise<any> {
     if (input === null || input === undefined) {
-      await warn(`Null or undefined input for ${expectedType}`, this.consoleLog)
       return expectedType === 'boolean' ? false : 0
     }
     if (typeof input === 'number' && expectedType === 'number') return input
     if (typeof input === 'boolean' && expectedType === 'boolean') return input
     if (typeof input === 'string') {
       if (expectedType === 'variable') {
-        return variables.includes(input) || this.inputVariables.includes(input)
-          ? input
-          : variables[0]
+        return variables.includes(input) ? input : variables[0]
       }
       if (expectedType === 'number' || expectedType === 'boolean') {
         const value = state.vars[input]
         if (value === undefined) {
-          await warn(
-            `Undefined variable ${input} for ${expectedType}`,
-            this.consoleLog,
-          )
           return expectedType === 'boolean' ? false : 0
         }
         if (
@@ -678,20 +468,13 @@ export class ProgenyProgram {
         ) {
           return value
         }
-        await warn(
-          `Type mismatch for ${input}: expected ${expectedType}, got ${typeof value}`,
-          this.consoleLog,
-        )
         return expectedType === 'boolean' ? false : 0
       }
       if (expectedType === "'=='|'!='|'>'|'>='|'<'|'<='") {
         return operators.includes(input) ? input : '=='
       }
     }
-    if (
-      typeof input === 'object' &&
-      isValidBlock(input, this.inputVariables, this.consoleLog)
-    ) {
+    if (typeof input === 'object' && isValidBlock(input, this.inputVariables)) {
       const blockDef = (blocksModule as any)[input.blockName]
       if (blockDef.output === 'number' && expectedType === 'number') {
         return await this.executeBlock(input, inputs, state)
@@ -701,59 +484,28 @@ export class ProgenyProgram {
       }
       if (input.blockName === 'get_number' && expectedType === 'number') {
         const key = input.inputs && (input.inputs[0] as string)
-        if (
-          !key ||
-          !(variables.includes(key) || this.inputVariables.includes(key))
-        ) {
-          await warn(
-            `Invalid variable for get: ${
-              key || 'undefined'
-            } in block ${JSON.stringify(input)}`,
-            this.consoleLog,
-          )
+        if (!key || !variables.includes(key)) {
           return 0
         }
         const value = state.vars[key]
         if (typeof value === 'number') {
           return value
         }
-        await warn(
-          `Type mismatch for get(${key}): expected number, got ${typeof value}`,
-          this.consoleLog,
-        )
         return 0
       }
       if (input.blockName === 'get_boolean' && expectedType === 'boolean') {
         const key = input.inputs && (input.inputs[0] as string)
-        if (
-          !key ||
-          !(variables.includes(key) || this.inputVariables.includes(key))
-        ) {
-          await warn(
-            `Invalid variable for get: ${
-              key || 'undefined'
-            } in block ${JSON.stringify(input)}`,
-            this.consoleLog,
-          )
+        if (!key || !variables.includes(key)) {
           return false
         }
         const value = state.vars[key]
         if (typeof value === 'boolean') {
           return value
         }
-        await warn(
-          `Type mismatch for get(${key}): expected boolean, got ${typeof value}`,
-          this.consoleLog,
-        )
         return false
       }
     }
-    await warn(
-      `Invalid input for ${expectedType}: ${JSON.stringify(
-        input,
-      )} (type: ${typeof input})`,
-      this.consoleLog,
-    )
+    // Invalid input for expectedType
     return expectedType === 'boolean' ? false : 0
   }
 
@@ -762,11 +514,7 @@ export class ProgenyProgram {
     runTimeInputs: any,
     state: any,
   ): Promise<any> {
-    if (!isValidBlock(block, this.inputVariables, this.consoleLog)) {
-      await warn(
-        `Executing invalid block: ${JSON.stringify(block)}`,
-        this.consoleLog,
-      )
+    if (!isValidBlock(block, this.inputVariables)) {
       return null
     }
 
@@ -828,10 +576,6 @@ export class ProgenyProgram {
     const blockDef = (blocksModule as any)[blockName]
 
     if (!blockDef.output) {
-      await error(
-        `Block '${blockName}' from blocksModule has no 'output' and is not a handled special block. Executing its action if available.`,
-        this.consoleLog,
-      )
       if (blockDef.action && typeof blockDef.action === 'function') {
         const resolvedInputsForStackAction = block.inputs
           ? await Promise.all(
@@ -858,15 +602,7 @@ export class ProgenyProgram {
             this.resolveInput(input, runTimeInputs, state, blockDef.inputs[i]),
           ),
         )
-      } else if (block.inputs && block.inputs.length > 0) {
-        await error(
-          `Block '${blockName}' input structure mismatch. Def inputs: ${JSON.stringify(
-            blockDef.inputs,
-          )}, Instance inputs: ${JSON.stringify(
-            block.inputs,
-          )}. Block: ${JSON.stringify(block)}`,
-          this.consoleLog,
-        )
+      } else if (Array.isArray(block.inputs) && block.inputs.length > 0) {
         return blockDef.output === 'boolean' ? false : 0
       }
     } else if (block.inputs && block.inputs.length > 0) {
@@ -930,7 +666,7 @@ export class ProgenyProgram {
 
   static async generateRandomBlock(
     depth = 0,
-    maxDepth = 2,
+    maxDepth = 3,
     isAction = false,
     targetVar: string | null = null,
     inputVariables: string[] = [],
@@ -967,16 +703,9 @@ export class ProgenyProgram {
         !isValidValue(
           block.value,
           expectedValueType,
-          inputVariables,
-          consoleLog,
+          inputVariables
         )
       ) {
-        await warn(
-          `Invalid value for set block (expected ${expectedValueType}): ${JSON.stringify(
-            block.value,
-          )}`,
-          consoleLog,
-        )
         if (expectedValueType === 'boolean') {
           block.value =
             booleanConstants[
@@ -997,13 +726,9 @@ export class ProgenyProgram {
             depth + 1,
             maxDepth,
             inputVariables,
-            consoleLog,
+            false
           )
-          if (!isValidValue(input, inputType, inputVariables, consoleLog)) {
-            await warn(
-              `Invalid input for ${blockName}: ${JSON.stringify(input)}`,
-              consoleLog,
-            )
+          if (!isValidValue(input, inputType, inputVariables)) {
             return inputType === 'number'
               ? constants[0]
               : inputType === 'boolean'
@@ -1016,162 +741,14 @@ export class ProgenyProgram {
     }
 
     if (!isValidBlock(block, inputVariables, consoleLog)) {
-      await warn(
-        `Generated invalid block ${JSON.stringify(block)} at depth ${depth}`,
-        consoleLog,
-      )
       return {
         blockName: 'set',
         var: targetVar || variables[0],
         value: inputVariables.length > 0 ? inputVariables[0] : constants[0],
       }
     }
-    await log(
-      `Depth ${depth}: Generated block ${blockName} ${
-        block.inputs ? 'with inputs ' + JSON.stringify(block.inputs) : ''
-      }${block.var ? ' var ' + block.var : ''}${
-        block.value ? ' value ' + JSON.stringify(block.value) : ''
-      }`,
-      consoleLog,
-    )
+    // ...existing code...
     return block
-  }
-
-  async mutate() {
-    const newBlocks = [...this.blocks]
-    if (Math.random() < 0.7) {
-      const setIndex = newBlocks.findIndex(
-        (b) => b.blockName === 'set' && b.var === 'out',
-      )
-      if (setIndex >= 0) {
-        const newValue = await generateInitialValue(
-          this.inputVariables,
-          0,
-          2,
-          this.consoleLog,
-        )
-        if (
-          isValidValue(newValue, 'number', this.inputVariables, this.consoleLog)
-        ) {
-          newBlocks[setIndex].value = newValue
-        } else {
-          await warn(
-            `Invalid new value for set out: ${JSON.stringify(newValue)}`,
-            this.consoleLog,
-          )
-          newBlocks[setIndex].value =
-            this.inputVariables.length > 0
-              ? this.inputVariables[
-                  Math.floor(Math.random() * this.inputVariables.length)
-                ]
-              : constants[0]
-        }
-      }
-    } else {
-      const setIndex = newBlocks.findIndex(
-        (b) => b.blockName === 'set' && b.var === 'out',
-      )
-      if (
-        setIndex >= 0 &&
-        typeof newBlocks[setIndex].value === 'object' &&
-        isValidBlock(
-          newBlocks[setIndex].value as Block,
-          this.inputVariables,
-          this.consoleLog,
-        )
-      ) {
-        const reporterBlock = findReporterBlock(
-          newBlocks[setIndex].value as Block,
-        )
-        if (reporterBlock) {
-          const usedVars = newBlocks.filter((b) => b.var).map((b) => b.var)
-          const newVar =
-            variables.filter((v) => v !== 'out' && !usedVars.includes(v))[0] ||
-            `v${usedVars.length}`
-          const newSetBlock: Block = {
-            blockName: 'set',
-            var: newVar,
-            value: reporterBlock.block,
-          }
-          if (isValidBlock(newSetBlock, this.inputVariables, this.consoleLog)) {
-            replaceReporterBlock(
-              newBlocks[setIndex].value as Block,
-              reporterBlock.path,
-              { blockName: 'get_number', inputs: [newVar] },
-            )
-            newBlocks.splice(setIndex, 0, newSetBlock)
-          } else {
-            await warn(
-              `Invalid new set block in mutation: ${JSON.stringify(
-                newSetBlock,
-              )}`,
-              this.consoleLog,
-            )
-          }
-        }
-      }
-    }
-    this.blocks = newBlocks.filter((block) =>
-      isValidBlock(block, this.inputVariables, this.consoleLog),
-    )
-    if (
-      this.blocks.length === 0 ||
-      !this.blocks.some((b) => b.blockName === 'return')
-    ) {
-      await warn(
-        `Reset to default blocks after mutation: ${JSON.stringify(
-          this.blocks,
-        )}`,
-        this.consoleLog,
-      )
-      this.blocks = [
-        {
-          blockName: 'set',
-          var: 'out',
-          value: await generateInitialValue(
-            this.inputVariables,
-            0,
-            2,
-            this.consoleLog,
-          ),
-        },
-        {
-          blockName: 'return',
-          inputs: ['out'],
-        },
-      ]
-    }
-    if (
-      !this.blocks.every((block) =>
-        isValidBlock(block, this.inputVariables, this.consoleLog),
-      )
-    ) {
-      await warn(
-        `Invalid blocks after mutation: ${JSON.stringify(this.blocks)}`,
-        this.consoleLog,
-      )
-      this.blocks = [
-        {
-          blockName: 'set',
-          var: 'out',
-          value: await generateInitialValue(
-            this.inputVariables,
-            0,
-            2,
-            this.consoleLog,
-          ),
-        },
-        {
-          blockName: 'return',
-          inputs: ['out'],
-        },
-      ]
-    }
-    this.blocks = optimizeDeadStores(
-      this.blocks,
-      this.inputVariables,
-      this.consoleLog,
-    )
   }
 }
 
